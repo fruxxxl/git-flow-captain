@@ -1,12 +1,9 @@
 # GitFlowCaptain
 
 It's a CLI tool that helps to automate the process of creating and merging branches, creating pull requests, and updating the version of the project.
-For current moment it is supports this commands:
-- update submodule link
-- create branch
-- create pull request
-- merge pull request
-
+For current moment it is supports this tasks:
+- Interactive link merged submodules
+  
 ## Requirements
 
 - Node.js 20 or later (lower not tested)
