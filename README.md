@@ -31,6 +31,7 @@ Example:
     }
   ]
 }
+```
 
 ### Projects Configuration (`projects`)
 
@@ -71,6 +72,7 @@ Example Project Configuration:
     }
   ]
 }
+```
 
 
 ### Filling the Configuration
@@ -80,8 +82,6 @@ Example Project Configuration:
 3. **Specify submodules (if any)**: For projects with submodules, ensure each submodule is listed with its corresponding details under the project's `submodules` array.
 
 This configuration file is essential for managing your projects and their dependencies effectively. Ensure all details are accurate and up-to-date.
-
-
 
 
 ## Usage
