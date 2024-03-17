@@ -290,7 +290,7 @@ export class SubmodulesLinker extends AbstractCrewMember {
 
     if (isNeedCommit) {
       await projectGit.commit(commitMessage);
-      this.logger.error(`New links of submodules for ${project.name} (${project.repositoryId}) committed.`);
+      this.logger.info(`New links of submodules for ${project.name} (${project.repositoryId}) committed.`);
     }
   }
 
