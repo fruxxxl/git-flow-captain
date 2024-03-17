@@ -1,0 +1,22 @@
+{
+    "projects": [
+        {
+            "name": "Project1",
+            "path": "/path/to/project1",
+            "branch": "develop",
+            "remote": "origin",
+            "submodules": [
+                {
+                    "name": "submodule1",
+                    "branch": "feature-branch",
+                    "remote": "origin"
+                },
+                {
+                    "name": "submodule2",
+                    "branch": "develop",
+                    "remote": "origin"
+                }
+            ]
+        }
+    ]
+}

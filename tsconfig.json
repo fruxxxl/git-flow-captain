@@ -1,0 +1,23 @@
+{
+    "compilerOptions": {
+        "types": [
+            "node"
+        ],
+        "baseUrl": ".",
+        "outDir": "./dist",
+        "target": "es6",
+        "module": "commonjs",
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "sourceMap": true,
+        "resolveJsonModule": true,
+        "typeRoots": [
+            "./node_modules/@types",
+        ],
+        "noImplicitAny": false,
+        "noImplicitOverride": false,
+        "noPropertyAccessFromIndexSignature": false,
+    }
+}
