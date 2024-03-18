@@ -65,9 +65,9 @@ export class SubmodulesLinker extends AbstractCrewMember {
       return '';
     }
 
-    const branchExists = await this.checkBranchExists(projectGit, project.mergingBranch);
+    const branchExists = await this.checkBranchExists(projectGit, project.baseBranch);
     if (!branchExists) {
-      this.logger.error(`Branch ${project.mergingBranch} does not exist in repository ${project.repositoryId}.`);
+      this.logger.error(`Branch ${project.baseBranch} does not exist in repository ${project.repositoryId}.`);
       return '';
     }
 
@@ -99,7 +99,7 @@ export class SubmodulesLinker extends AbstractCrewMember {
       message: `${this.logger.prefix} Create a new feature branch or select an existing one?`,
       choices: [
         {
-          title: `Create a new feature branch from ${project.mergingBranch}`,
+          title: `Create a new feature branch from ${project.baseBranch}`,
           value: 'createNewBranch',
         },
         { title: 'Select an existing branch', value: 'selectExistingBranch' },
@@ -133,7 +133,7 @@ export class SubmodulesLinker extends AbstractCrewMember {
         });
 
         featureProjectBranch = branchName;
-        await projectGit.checkout(`${projectConfig.remote}/${projectConfig.mergingBranch}`);
+        await projectGit.checkout(`${projectConfig.remote}/${projectConfig.baseBranch}`);
         await projectGit.checkoutLocalBranch(featureProjectBranch);
         this.logger.info(`Created a new branch ${featureProjectBranch} for updating submodules`);
         break;
@@ -170,23 +170,23 @@ export class SubmodulesLinker extends AbstractCrewMember {
     const { isUpdateFeatureBranch } = await prompts({
       type: 'confirm',
       name: 'isUpdateFeatureBranch',
-      message: `${this.logger.prefix} Do you want to update the feature branch ${featureProjectBranch} from ${project.mergingBranch}?`,
+      message: `${this.logger.prefix} Do you want to update the feature branch ${featureProjectBranch} from ${project.baseBranch}?`,
     });
 
     if (isUpdateFeatureBranch) {
       const spinner = this.logger.makeAwaiting(
-        `Updating the feature branch ${featureProjectBranch} from ${project.mergingBranch}`,
+        `Updating the feature branch ${featureProjectBranch} from ${project.baseBranch}`,
       );
 
       try {
-        await projectGit.pull(project.remote, project.mergingBranch);
+        await projectGit.pull(project.remote, project.baseBranch);
         this.logger.successAwaiting(
-          `Feature branch ${featureProjectBranch} updated from ${project.mergingBranch} successfully`,
+          `Feature branch ${featureProjectBranch} updated from ${project.baseBranch} successfully`,
           spinner,
         );
       } catch (error) {
         this.logger.failAwaiting(
-          `Failed to update feature branch ${featureProjectBranch} from ${project.mergingBranch}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          `Failed to update feature branch ${featureProjectBranch} from ${project.baseBranch}: ${error instanceof Error ? error.message : 'Unknown error'}`,
           spinner,
         );
 
@@ -198,7 +198,7 @@ export class SubmodulesLinker extends AbstractCrewMember {
 
   private async selectSubmodulesToUpdate(projectConfig: TProjectConfig) {
     const submoduleChoices = projectConfig.submodules.map((submodule) => ({
-      title: `${submodule.name} (${submodule.mergingBranch})`,
+      title: `${submodule.name} (${submodule.baseBranch})`,
       value: submodule.name,
     }));
 
@@ -239,8 +239,8 @@ export class SubmodulesLinker extends AbstractCrewMember {
     for (const submodule of selectedSubmodules) {
       const submoduleGit: SimpleGit = simpleGit(`${project.path}/${submodule.name}`);
 
-      await submoduleGit.checkout(submodule.mergingBranch);
-      await submoduleGit.pull(submodule.remote, submodule.mergingBranch);
+      await submoduleGit.checkout(submodule.baseBranch);
+      await submoduleGit.pull(submodule.remote, submodule.baseBranch);
 
       const previousCommit = (await projectGit.raw(['ls-tree', 'HEAD', submodule.name])).split(/\s+/)[2];
       const currentCommit = (await submoduleGit.revparse(['HEAD'])).trim();
@@ -361,7 +361,7 @@ export class SubmodulesLinker extends AbstractCrewMember {
         await azureDevOpsClient.createPullRequest({
           repositoryId: project.repositoryId,
           sourceBranch: featureProjectBranch,
-          targetBranch: project.mergingBranch,
+          targetBranch: project.baseBranch,
           title: prOptionsResponse.prTitle,
           description,
         });

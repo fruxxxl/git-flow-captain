@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 const SubmoduleConfigSchema = z.object({
   name: z.string(),
-  mergingBranch: z.string(),
+  baseBranch: z.string(),
   remote: z.string(),
 });
 
@@ -11,7 +11,7 @@ const ProjectConfigSchema = z.object({
   name: z.string(),
   repositoryId: z.string(),
   path: z.string(),
-  mergingBranch: z.string(),
+  baseBranch: z.string(),
   remote: z.string(),
   submodules: z.array(SubmoduleConfigSchema),
 });

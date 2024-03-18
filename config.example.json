@@ -1,19 +1,27 @@
 {
+    "prProviders": [
+        {
+            "provider": "AzureDevOps",
+            "project": "SomeAzureDevOpsProject",
+            "organization": "SomeAzureDevOpsOrganization"
+        }
+    ],
     "projects": [
         {
             "name": "Project1",
+            "repositoryId": "repositoryId",
             "path": "/path/to/project1",
-            "branch": "develop",
+            "baseBranch": "develop",
             "remote": "origin",
             "submodules": [
                 {
                     "name": "submodule1",
-                    "branch": "feature-branch",
+                    "baseBranch": "feature-branch",
                     "remote": "origin"
                 },
                 {
                     "name": "submodule2",
-                    "branch": "develop",
+                    "baseBranch": "feature-branch",
                     "remote": "origin"
                 }
             ]

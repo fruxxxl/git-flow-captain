@@ -40,7 +40,7 @@ Each project object within the `projects` array should contain the following fie
 - **`name`**: The name of the project.
 - **`repositoryId`**: The identifier for the repository.
 - **`path`**: The local file system path to the project.
-- **`mergingBranch`**: The branch name used for merging changes.
+- **`baseBranch`**: The branch name used for merging changes.
 - **`remote`**: The name of the remote repository (commonly `origin`).
 - **`submodules`**: An array of submodule objects, if any, associated with the project.
 
@@ -49,7 +49,7 @@ Each project object within the `projects` array should contain the following fie
 Each submodule object should include:
 
 - **`name`**: The name of the submodule.
-- **`mergingBranch`**: The branch name used for merging changes within the submodule.
+- **`baseBranch`**: The branch name used for merging changes within the submodule.
 - **`remote`**: The name of the remote repository for the submodule.
 
 Example Project Configuration:
@@ -60,12 +60,12 @@ Example Project Configuration:
       "name": "Name for your convinience",
       "repositoryId": "repositoryName",
       "path": "/absolute/path/to/project",
-      "mergingBranch": "develop",
+      "baseBranch": "develop",
       "remote": "origin",
       "submodules": [
         {
           "name": "submodule1",
-          "mergingBranch": "develop",
+          "baseBranch": "develop",
           "remote": "origin"
         },
       ]
