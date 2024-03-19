@@ -12,12 +12,11 @@ export class GitFlowCaptain {
     private readonly crewMembers: CrewMembers<AbstractCrewMember>,
     private readonly logger: Logger,
   ) {
-    //
+    this.logger.info('Welcome aboard!');
   }
 
   async startMission() {
     const choosedTask = await this.taskList.chooseTaskInteractive();
-    this.logger.info(`Executing task "${choosedTask.title}"`);
 
     const crewMemberAssignedClassName = this.crewMembersAssignment.forTask(choosedTask);
 

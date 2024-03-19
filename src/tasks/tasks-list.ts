@@ -32,6 +32,8 @@ export class TasksList {
       throw new Error(`Task with name "${taskName}" not found`);
     }
 
+    this.logger.info(`Executing task "${task.title}"`);
+
     return task;
   }
 }
