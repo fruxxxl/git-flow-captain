@@ -1,4 +1,4 @@
-import ora from 'ora';
+import ora, { Ora } from 'ora';
 
 export class Logger {
   private constructor(private readonly logPrefix: string = '') {
@@ -21,15 +21,15 @@ export class Logger {
     return ora(`${this.logPrefix} ${message}`).start();
   }
 
-  successAwaiting(message: string, awaitedOra: ora.Ora) {
+  successAwaiting(message: string, awaitedOra: Ora) {
     return awaitedOra.succeed(message ? `${this.logPrefix} ${message}` : '');
   }
 
-  failAwaiting(message: string, awaitedOra: ora.Ora) {
+  failAwaiting(message: string, awaitedOra: Ora) {
     return awaitedOra.fail(message ? `${this.logPrefix} ${message}` : '');
   }
 
-  warnAwaiting(message: string, awaitedOra: ora.Ora) {
+  warnAwaiting(message: string, awaitedOra: Ora) {
     return awaitedOra.warn(message ? `${this.logPrefix} ${message}` : '');
   }
 

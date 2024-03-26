@@ -4,7 +4,8 @@ import { z } from 'zod';
 const SubmoduleConfigSchema = z.object({
   name: z.string(),
   baseBranch: z.string(),
-  remote: z.string(),
+  remoteName: z.string(),
+  remoteUrl: z.string(),
 });
 
 const ProjectConfigSchema = z.object({
@@ -12,7 +13,8 @@ const ProjectConfigSchema = z.object({
   repositoryId: z.string(),
   path: z.string(),
   baseBranch: z.string(),
-  remote: z.string(),
+  remoteName: z.string(),
+  remoteUrl: z.string(),
   submodules: z.array(SubmoduleConfigSchema),
 });
 
@@ -27,7 +29,7 @@ export const ConfigSchema = z.object({
   projects: z.array(ProjectConfigSchema),
 });
 
-export type TConfigSchema = z.infer<typeof ConfigSchema>;
+export type TGeneralConfig = z.infer<typeof ConfigSchema>;
 export type TProjectConfig = z.infer<typeof ProjectConfigSchema>;
 export type TSubmoduleConfig = z.infer<typeof SubmoduleConfigSchema>;
 export type TPrProvider = z.infer<typeof PrProviderSchema>;

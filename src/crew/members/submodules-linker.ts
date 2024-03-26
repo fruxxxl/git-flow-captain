@@ -1,17 +1,16 @@
 import simpleGit, { SimpleGit } from 'simple-git';
 import prompts from 'prompts';
 import { TPrProvider, TProjectConfig, TSubmoduleConfig } from '../../configs/config-schema';
-import { PullRequestProvider } from '../../types';
+import { ILogger, PullRequestProvider } from '../../types';
 import { AzureDevOpsClient } from '../../pr-providers/azure-dev-ops/azure-dev-ops-client';
 import * as fs from 'fs';
-import { Logger } from '../../logger';
 import { AbstractCrewMember } from './abstract-crew-member';
 
 export class SubmodulesLinker extends AbstractCrewMember {
   constructor(
     private readonly projectConfigs: TProjectConfig[],
     private readonly prProviders: TPrProvider[],
-    private readonly logger: Logger,
+    private readonly logger: ILogger,
   ) {
     super();
   }
@@ -133,7 +132,7 @@ export class SubmodulesLinker extends AbstractCrewMember {
         });
 
         featureProjectBranch = branchName;
-        await projectGit.checkout(`${projectConfig.remote}/${projectConfig.baseBranch}`);
+        await projectGit.checkout(`${projectConfig.remoteName}/${projectConfig.baseBranch}`);
         await projectGit.checkoutLocalBranch(featureProjectBranch);
         this.logger.info(`Created a new branch ${featureProjectBranch} for updating submodules`);
         break;
@@ -179,7 +178,7 @@ export class SubmodulesLinker extends AbstractCrewMember {
       );
 
       try {
-        await projectGit.pull(project.remote, project.baseBranch);
+        await projectGit.pull(project.remoteName, project.baseBranch);
         this.logger.successAwaiting(
           `Feature branch ${featureProjectBranch} updated from ${project.baseBranch} successfully`,
           spinner,
@@ -240,7 +239,7 @@ export class SubmodulesLinker extends AbstractCrewMember {
       const submoduleGit: SimpleGit = simpleGit(`${project.path}/${submodule.name}`);
 
       await submoduleGit.checkout(submodule.baseBranch);
-      await submoduleGit.pull(submodule.remote, submodule.baseBranch);
+      await submoduleGit.pull(submodule.remoteName, submodule.baseBranch);
 
       const previousCommit = (await projectGit.raw(['ls-tree', 'HEAD', submodule.name])).split(/\s+/)[2];
       const currentCommit = (await submoduleGit.revparse(['HEAD'])).trim();
@@ -298,17 +297,17 @@ export class SubmodulesLinker extends AbstractCrewMember {
     const { isNeedPush } = await prompts({
       type: 'confirm',
       name: 'isNeedPush',
-      message: `${this.logger.prefix} Do you want to push ${featureProjectBranch} of ${project.name} (${project.repositoryId}) to remote ${project.remote}?`,
+      message: `${this.logger.prefix} Do you want to push ${featureProjectBranch} of ${project.name} (${project.repositoryId}) to remote ${project.remoteName}?`,
       initial: false,
     });
 
     if (isNeedPush) {
       const pushSpinner = this.logger.makeAwaiting(
-        `Pushing ${featureProjectBranch} of ${project.name} (${project.repositoryId}) to ${project.remote} remote...`,
+        `Pushing ${featureProjectBranch} of ${project.name} (${project.repositoryId}) to ${project.remoteName} remote...`,
       );
-      await projectGit.push(project.remote, featureProjectBranch);
+      await projectGit.push(project.remoteName, featureProjectBranch);
       this.logger.successAwaiting(
-        `Pushed ${featureProjectBranch} of ${project.name} (${project.repositoryId}) to ${project.remote} remote`,
+        `Pushed ${featureProjectBranch} of ${project.name} (${project.repositoryId}) to ${project.remoteName} remote`,
         pushSpinner,
       );
     }

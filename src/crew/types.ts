@@ -1,7 +1,10 @@
-export interface ICrewMembers {
-  executeAssigned: (crewMemberClassName: string) => Promise<void>;
+import { Task } from '@tasks/task';
+import { Context } from './context';
+
+export interface ICrew {
+  executeAssigned: (task: Task) => Promise<void>;
 }
 
 export interface ICrewMember {
-  execute: () => Promise<void>;
+  execute: (context: Context) => Promise<void>;
 }

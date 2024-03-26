@@ -1,11 +1,11 @@
 import prompts from 'prompts';
 import { Task } from './task';
-import { Logger } from '../logger';
+import { ILogger } from '../types';
 
 export class TasksList {
   constructor(
     public readonly tasks: Task[],
-    private readonly logger: Logger,
+    private readonly logger: ILogger,
   ) {
     //
   }

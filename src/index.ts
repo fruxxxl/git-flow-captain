@@ -1,7 +1,10 @@
 /* eslint-disable prettier/prettier */
 
 import 'source-map-support/register';
-import dotenv from 'dotenv';
+import 'module-alias/register'
+
+
+import { config } from 'dotenv';
 
 import { Logger } from './logger';
 import { SubmodulesLinker } from './crew/members/submodules-linker';
@@ -9,42 +12,54 @@ import { GeneralConfigs } from './configs/general-configs';
 import { ETaskName } from './tasks/types';
 import { TasksList } from './tasks/tasks-list';
 import { Task } from './tasks/task';
-import { CrewMembersAssignment } from './crew/crew-members-assignment';
-import { BranchFeaturer } from './crew/members/branch-featurer';
-import { CrewMembers } from './crew/crew-members';
-import { GitFlowCaptain } from './git-flow-captain';
 
-dotenv.config();
+import { Crew as Crew } from './crew/crew';
+import { GitFlowCaptain } from './git-flow-captain';
+import { RemoteChanger } from './crew/members/remote-changer';
+import { ProjectsConfigInFileUpdater } from './crew/members/projects-config-in-file-updater';
+import { CrewTaskAssignment } from '@crew/crew-task-assignment';
+import { Context } from '@crew/context';
+
+config();
+
+const configPath = './config.json'
 
 const main = async () => {
   const config = GeneralConfigs.FromFile(
-    './config.json',
+    configPath,
     Logger.Prefixed(GeneralConfigs.name),
   ).parsedAndValidated();
 
   new GitFlowCaptain(
     new TasksList([
       new Task(ETaskName.LINK_SUBMODULES, 'Interactive link merged submodules'),
-      new Task(ETaskName.PREPARE_BRANCHES_FOR_FEATURE, 'Prepare branches for feature'),
-      // TODO: Add other tasks here
+      new Task(ETaskName.CHANGE_REMOTE, 'Change remote for feature'),
     ], Logger.Prefixed(TasksList.name)),
-    new CrewMembersAssignment({
-      [ETaskName.LINK_SUBMODULES]: SubmodulesLinker.name,
-      [ETaskName.PREPARE_BRANCHES_FOR_FEATURE]: BranchFeaturer.name,
-      // TODO: Add other assignments here
-    }),
-    new CrewMembers([
-        new SubmodulesLinker(
+    new Crew(
+      new CrewTaskAssignment({
+        [ETaskName.LINK_SUBMODULES]: {
+          responsibles: [SubmodulesLinker.name],
+          context: new Context(ETaskName.LINK_SUBMODULES, Logger.Prefixed(ETaskName.LINK_SUBMODULES)),
+        },
+        [ETaskName.CHANGE_REMOTE]: {
+          responsibles: [RemoteChanger.name, ProjectsConfigInFileUpdater.name],
+          context: new Context(ETaskName.CHANGE_REMOTE, Logger.Prefixed(ETaskName.CHANGE_REMOTE)),
+        }
+      }),
+      [
+        new SubmodulesLinker( 
           config.projects,
           config.prProviders,
           Logger.Prefixed(SubmodulesLinker.name),
         ),
-        new BranchFeaturer(
+        new RemoteChanger(
           config.projects,
-          config.prProviders,
-          Logger.Prefixed(BranchFeaturer.name),
+          Logger.Prefixed(RemoteChanger.name),
         ),
-        // TODO: Add other executors here
+        new ProjectsConfigInFileUpdater(
+          configPath,
+          Logger.Prefixed(ProjectsConfigInFileUpdater.name),
+        ),
       ],
     ),
     Logger.Prefixed(GitFlowCaptain.name),
