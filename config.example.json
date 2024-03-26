@@ -12,17 +12,20 @@
             "repositoryId": "repositoryId",
             "path": "/path/to/project1",
             "baseBranch": "develop",
-            "remote": "origin",
+            "remoteName": "origin",
+            "remoteUrl": "https://github.com/username/repo.git",
             "submodules": [
                 {
                     "name": "submodule1",
                     "baseBranch": "feature-branch",
-                    "remote": "origin"
+                    "remoteName": "origin",
+                    "remoteUrl": "https://github.com/username/repo.git"
                 },
                 {
                     "name": "submodule2",
                     "baseBranch": "feature-branch",
-                    "remote": "origin"
+                    "remoteName": "origin",
+                    "remoteUrl": "https://github.com/username/repo.git"
                 }
             ]
         }

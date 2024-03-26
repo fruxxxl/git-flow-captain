@@ -16,8 +16,23 @@
         "typeRoots": [
             "./node_modules/@types",
         ],
+        "moduleResolution": "node",
         "noImplicitAny": false,
         "noImplicitOverride": false,
         "noPropertyAccessFromIndexSignature": false,
+        "paths": {
+            "@crew/*": [
+                "./src/crew/*"
+            ],
+            "@tasks/*": [
+                "./src/tasks/*"
+            ],
+            "@configs/*": [
+                "./src/configs/*"
+            ],
+            "@logger": [
+                "./src/logger"
+            ]
+        }
     }
 }
