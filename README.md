@@ -14,11 +14,12 @@ For current moment it is supports this tasks:
 
 The `config.json` file is a crucial part of setting up your project environment. It defines the pull request providers and project configurations, including repository details and submodules. Below is a guide on how to fill out this configuration file.
 
-### Pull Request Providers (`prProviders`). Now support Azure DevOps only (You are welcome to contribute to add more providers:) )
+### Pull Request Providers (`prProviders`). Now support Azure DevOps and GitLab only (You are welcome to contribute to add more providers:) )
 
 - **`provider`**: The name of the service provider for pull requests (e.g., `AzureDevOps`).
 - **`project`**: The name of the project within the provider.
 - **`organization`**: The name of the organization under which the project is hosted.
+- **`host`**: The url of the host for the provider.
 
 Example:
 ```json
@@ -27,7 +28,8 @@ Example:
     {
       "provider": "AzureDevOps",
       "project": "projectName",
-      "organization": "organizationName"
+      "organization": "organizationName",
+      "host": "https://...."
     }
   ]
 }
@@ -41,7 +43,8 @@ Each project object within the `projects` array should contain the following fie
 - **`repositoryId`**: The identifier for the repository.
 - **`path`**: The local file system path to the project.
 - **`baseBranch`**: The branch name used for merging changes.
-- **`remote`**: The name of the remote repository (commonly `origin`).
+- **`remoteName`**: The name of the remote repository (commonly `origin`).
+- **`remoteUrl`**: The url of the remote repository.
 - **`submodules`**: An array of submodule objects, if any, associated with the project.
 
 #### Submodules
@@ -50,7 +53,11 @@ Each submodule object should include:
 
 - **`name`**: The name of the submodule.
 - **`baseBranch`**: The branch name used for merging changes within the submodule.
-- **`remote`**: The name of the remote repository for the submodule.
+- **`remoteName`**: The name of the remote repository for the submodule.
+- **`remoteUrl`**: The url of the remote repository for the submodule.
+- **`repositoryId`**: The id of the repository for the submodule.
+
+
 
 Example Project Configuration:
 ```json
@@ -58,15 +65,18 @@ Example Project Configuration:
   "projects": [
     {
       "name": "Name for your convinience",
-      "repositoryId": "repositoryName",
+      "repositoryId": "repositoryNameOrIdDependsOnProvider",
       "path": "/absolute/path/to/project",
       "baseBranch": "develop",
-      "remote": "origin",
+      "remoteName": "origin",
+      "remoteUrl": "remoteUrl",
       "submodules": [
         {
           "name": "submodule1",
           "baseBranch": "develop",
-          "remote": "origin"
+          "remoteName": "origin",
+          "remoteUrl": "remoteUrl",
+          "repositoryId": "repositoryNameOrIdDependsOnProvider"
         },
       ]
     }
