@@ -8,6 +8,7 @@ export class AzureDevOpsClient {
   constructor(
     private readonly organization: string,
     private readonly project: string,
+    private readonly host: string,
   ) {
     const pat = process.env.AZURE_DEVOPS_PERSONAL_ACCESS_TOKEN;
     if (!pat) {
@@ -17,7 +18,7 @@ export class AzureDevOpsClient {
   }
 
   get baseUrl() {
-    return `https://dev.azure.com/${this.organization}/${this.project}`;
+    return `${this.host}/${this.organization}/${this.project}`;
   }
 
   private createPanelLink(response: AzureCreatePullRequestResponse): string {

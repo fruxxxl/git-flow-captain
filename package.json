@@ -23,6 +23,7 @@
     "typescript": "^5.4.3"
   },
   "dependencies": {
+    "@gitbeaker/rest": "^40.0.2",
     "axios": "^1.6.8",
     "dotenv": "^16.4.5",
     "module-alias": "^2.2.3",

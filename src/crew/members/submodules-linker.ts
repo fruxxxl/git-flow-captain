@@ -5,6 +5,7 @@ import { ILogger, PullRequestProvider } from '../../types';
 import { AzureDevOpsClient } from '../../pr-providers/azure-dev-ops/azure-dev-ops-client';
 import * as fs from 'fs';
 import { AbstractCrewMember } from './abstract-crew-member';
+import { GitlabClient } from '../../pr-providers/gitlab/gitlab-client';
 
 export class SubmodulesLinker extends AbstractCrewMember {
   constructor(
@@ -332,13 +333,24 @@ export class SubmodulesLinker extends AbstractCrewMember {
         type: 'select',
         name: 'prProvider',
         message: `${this.logger.prefix} Select PR provider:`,
-        choices: [{ title: 'AzureDevOps', value: PullRequestProvider.AzureDevOps }],
+        choices: [
+          { title: 'Gitlab', value: PullRequestProvider.Gitlab },
+          { title: 'AzureDevOps', value: PullRequestProvider.AzureDevOps },
+        ],
       },
       {
         type: 'text',
         name: 'prTitle',
         message: `${this.logger.prefix} Enter the title for the PR (leave blank for default title):`,
         initial: `[${project.name}] Update submodules`,
+      },
+    ]);
+
+    const { taskId } = await prompts([
+      {
+        type: 'text',
+        name: 'taskId',
+        message: `${this.logger.prefix} Enter task id in start of title or skip:`,
       },
     ]);
 
@@ -356,13 +368,40 @@ export class SubmodulesLinker extends AbstractCrewMember {
           `Creating PR request using ${prOptionsResponse.prProvider}...`,
         );
 
-        const azureDevOpsClient = new AzureDevOpsClient(prProvider.organization, prProvider.project);
+        const azureDevOpsClient = new AzureDevOpsClient(prProvider.organization, prProvider.project, prProvider.host);
         await azureDevOpsClient.createPullRequest({
           repositoryId: project.repositoryId,
           sourceBranch: featureProjectBranch,
           targetBranch: project.baseBranch,
-          title: prOptionsResponse.prTitle,
+          title: `${taskId ? `${taskId} ` : ''}${prOptionsResponse.prTitle}`,
           description,
+        });
+
+        this.logger.successAwaiting('PR request created successfully', createPRSpinner);
+
+        break;
+      }
+
+      case PullRequestProvider.Gitlab: {
+        const prProvider = this.prProviders.find((prProvider) => prProvider.provider === prOptionsResponse.prProvider);
+        if (!prProvider) {
+          this.logger.error(
+            `PR provider ${prOptionsResponse.prProvider} is not configured for project ${project.name} (${project.repositoryId}). See Readme for more information`,
+          );
+          return;
+        }
+
+        const createPRSpinner = this.logger.makeAwaiting(
+          `Creating PR request using ${prOptionsResponse.prProvider}...`,
+        );
+
+        const gitlabClient = new GitlabClient(prProvider.host);
+        await gitlabClient.createMergeRequest({
+          sourceBranch: featureProjectBranch,
+          targetBranch: project.baseBranch,
+          title: `${taskId ? `${taskId} ` : ''}${prOptionsResponse.prTitle}`,
+          description,
+          repositoryId: project.repositoryId,
         });
 
         this.logger.successAwaiting('PR request created successfully', createPRSpinner);

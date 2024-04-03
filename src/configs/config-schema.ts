@@ -6,6 +6,7 @@ const SubmoduleConfigSchema = z.object({
   baseBranch: z.string(),
   remoteName: z.string(),
   remoteUrl: z.string(),
+  repositoryId: z.string(),
 });
 
 const ProjectConfigSchema = z.object({
@@ -19,9 +20,10 @@ const ProjectConfigSchema = z.object({
 });
 
 const PrProviderSchema = z.object({
-  provider: z.enum([PullRequestProvider.AzureDevOps]),
+  provider: z.nativeEnum(PullRequestProvider),
   project: z.string(),
   organization: z.string(),
+  host: z.string(),
 });
 
 export const ConfigSchema = z.object({

@@ -3,7 +3,8 @@
         {
             "provider": "AzureDevOps",
             "project": "SomeAzureDevOpsProject",
-            "organization": "SomeAzureDevOpsOrganization"
+            "organization": "SomeAzureDevOpsOrganization",
+            "host": "https://dev.azure.com"
         }
     ],
     "projects": [
@@ -19,13 +20,15 @@
                     "name": "submodule1",
                     "baseBranch": "feature-branch",
                     "remoteName": "origin",
-                    "remoteUrl": "https://github.com/username/repo.git"
+                    "remoteUrl": "https://github.com/username/repo.git",
+                    "repositoryId": "repositoryId"
                 },
                 {
                     "name": "submodule2",
                     "baseBranch": "feature-branch",
                     "remoteName": "origin",
-                    "remoteUrl": "https://github.com/username/repo.git"
+                    "remoteUrl": "https://github.com/username/repo.git",
+                    "repositoryId": "repositoryId"
                 }
             ]
         }

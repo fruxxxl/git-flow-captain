@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export enum PullRequestProvider {
+  Gitlab = 'Gitlab',
   AzureDevOps = 'AzureDevOps',
 }
 
