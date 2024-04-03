@@ -22,10 +22,9 @@ export class GitlabClient {
       const response = await this.api.MergeRequests.create(params.repositoryId, sourceBranch, targetBranch, title, {
         description,
         labels,
-        squash: true,
       });
 
-      console.log('Merge Request created successfully:', response.webUrl);
+      console.log('Merge Request created successfully:', response.web_url);
 
       return response;
     } catch (error: any) {
