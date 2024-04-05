@@ -98,7 +98,7 @@ This configuration file is essential for managing your projects and their depend
 
 1. Install dependencies with the command `npm install`
 2. Create a file `.env` based on `.env.example` and configure it accordingly.
-3. Create a file `project.config` based on `project.config.example` and configure it accordingly.
+3. Create a file `config.json` based on `config.example.json` and configure it accordingly.
 4. Run the tool with the command `npm run start`
 
 
