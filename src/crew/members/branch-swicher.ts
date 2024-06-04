@@ -5,6 +5,7 @@ import { ILogger } from '../../types';
 import { AbstractCrewMember } from './abstract-crew-member';
 
 interface IPreparedGitItem {
+  parentName?: string;
   name: string;
   remoteName: string;
   baseBranch: string;
@@ -16,6 +17,7 @@ export class BranchSwitcher extends AbstractCrewMember {
   private branch: string = '';
   private isNeedUpdateProjectBranch: boolean = false;
   private isNeedUpdateSubmodules: boolean = false;
+  private allChoosedGits: IPreparedGitItem[] = [];
 
   constructor(
     private readonly projectConfigs: TProjectConfig[],
@@ -69,6 +71,7 @@ export class BranchSwitcher extends AbstractCrewMember {
         uniqSubmodules.add(submodule.name);
 
         preparedUniqSubmoduleGits.push({
+          parentName: projectConfig.name,
           name: submodule.name,
           remoteName: submodule.remoteName,
           baseBranch: submodule.baseBranch,
@@ -78,29 +81,70 @@ export class BranchSwitcher extends AbstractCrewMember {
       }
     }
 
-    const isConfirmed = await this.confirmWillBeUpdated([...preparedProjectGits, ...preparedSubmoduleGits]);
+    const allChoosedGits = [...preparedProjectGits, ...preparedSubmoduleGits];
+
+    const isConfirmed = await this.confirmWillBeUpdated(allChoosedGits);
     if (!isConfirmed) {
       this.logger.info('Branch switch cancelled');
       return;
     }
 
+    await this.fetchFromRemote();
+
     // first update uniq submodules from base branch
+    const submodulesChanges: IPreparedGitItem[] = [];
     for (const gitedItem of preparedUniqSubmoduleGits) {
       await gitedItem.git.checkout(this.branch);
       if (this.isNeedUpdateSubmodules) {
-        const spinner = this.logger.makeAwaiting(`Updating submodule ${gitedItem.name} from ${gitedItem.baseBranch}`);
+        const spinner = this.logger.makeAwaiting(
+          `Updating submodule ${gitedItem.parentName}/${gitedItem.name} from ${gitedItem.baseBranch}`,
+        );
         try {
           await gitedItem.git.pull(gitedItem.remoteName, gitedItem.baseBranch);
+
           this.logger.successAwaiting(
-            `Submodule ${gitedItem.name} updated from ${gitedItem.baseBranch} successfully`,
+            `Submodule ${gitedItem.parentName}/${gitedItem.name} updated from ${gitedItem.baseBranch} successfully`,
             spinner,
           );
+
+          const status = await gitedItem.git.status();
+          if (status.ahead > 0) {
+            submodulesChanges.push(gitedItem);
+          }
         } catch (error) {
           this.logger.failAwaiting(
-            `Failed to update branch ${this.branch} for ${gitedItem.name} from ${gitedItem.baseBranch}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            `Failed to update submodule ${gitedItem.parentName}/${gitedItem.name} from ${gitedItem.baseBranch}: ${error instanceof Error ? error.message : 'Unknown error'}`,
             spinner,
           );
         }
+      }
+    }
+
+    if (submodulesChanges.length) {
+      this.logger.info(
+        `Sumbodules ${submodulesChanges.map((item) => `${item.parentName}/${item.name}`).join(', ')} has changes!`,
+      );
+
+      const { isPushChanges } = await prompts({
+        type: 'confirm',
+        name: 'isPushChanges',
+        message: `${this.logger.prefix} Do you want to push changes of merged submodules to remote?`,
+        instructions: 'For pulling them in another project submodules (avoiding duplicate empty changes commits)',
+        initial: true,
+      });
+
+      if (isPushChanges) {
+        for (const gitSubmoduleItem of submodulesChanges) {
+          const spinner = this.logger.makeAwaiting(
+            `Pushing changes to ${gitSubmoduleItem.parentName}/${gitSubmoduleItem.name}`,
+          );
+          await gitSubmoduleItem.git.push(gitSubmoduleItem.remoteName, this.branch);
+          this.logger.successAwaiting(
+            `Pushed changes to ${gitSubmoduleItem.parentName}/${gitSubmoduleItem.name} successfully`,
+            spinner,
+          );
+        }
+        await this.fetchFromRemote();
       }
     }
 
@@ -134,7 +178,7 @@ export class BranchSwitcher extends AbstractCrewMember {
       try {
         await gitedItem.git.checkout(this.branch);
         await gitedItem.git.pull(gitedItem.remoteName, this.branch);
-        this.logger.successAwaiting(`Updated submodule ${gitedItem.name} checkouted successfully`, spinner);
+        this.logger.successAwaiting(`Submodule ${gitedItem.name} switched to ${this.branch} successfully`, spinner);
       } catch (error) {
         this.logger.failAwaiting(
           `Failed to checkout submodule ${gitedItem.name} to branch ${this.branch}: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -206,6 +250,21 @@ ${textProjects}`,
     return isConfirmed;
   }
 
+  async fetchFromRemote() {
+    for (const gitedItem of this.allChoosedGits) {
+      const spinner = this.logger.makeAwaiting(`Fetching ${gitedItem.name} from ${gitedItem.remoteName}`);
+      try {
+        await gitedItem.git.fetch(gitedItem.remoteName);
+        this.logger.successAwaiting(`Fetched ${gitedItem.name} from ${gitedItem.remoteName} successfully`, spinner);
+      } catch (error) {
+        this.logger.failAwaiting(
+          `Failed to fetch ${gitedItem.name} from ${gitedItem.remoteName}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          spinner,
+        );
+      }
+    }
+  }
+
   private async selectProjects(projects: TProjectConfig[]) {
     const { selectedProjects } = await prompts({
       type: 'multiselect',
@@ -230,7 +289,7 @@ ${textProjects}`,
     const response = await prompts({
       type: 'multiselect',
       name: 'submodules',
-      message: `${this.logger.prefix} Select submodules to switch to branch`,
+      message: `${this.logger.prefix} [${projectConfig.name}] Select submodules to switch to branch`,
       choices: submoduleChoices,
     });
 
