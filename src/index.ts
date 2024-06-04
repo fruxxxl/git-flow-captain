@@ -19,6 +19,7 @@ import { RemoteChanger } from './crew/members/remote-changer';
 import { ProjectsConfigInFileUpdater } from './crew/members/projects-config-in-file-updater';
 import { CrewTaskAssignment } from '@crew/crew-task-assignment';
 import { Context } from '@crew/context';
+import { BranchSwitcher } from '@crew/members/branch-swicher';
 
 config();
 
@@ -34,6 +35,7 @@ const main = async () => {
     new TasksList([
       new Task(ETaskName.LINK_SUBMODULES, 'Interactive link merged submodules'),
       new Task(ETaskName.CHANGE_REMOTE, 'Change remote for feature'),
+      new Task(ETaskName.BRANCH_SWITCHER, 'Switch projects and submodules to branch'),
     ], Logger.Prefixed(TasksList.name)),
     new Crew(
       new CrewTaskAssignment({
@@ -44,7 +46,11 @@ const main = async () => {
         [ETaskName.CHANGE_REMOTE]: {
           responsibles: [RemoteChanger.name, ProjectsConfigInFileUpdater.name],
           context: new Context(ETaskName.CHANGE_REMOTE, Logger.Prefixed(ETaskName.CHANGE_REMOTE)),
-        }
+        },
+        [ETaskName.BRANCH_SWITCHER]: {
+          responsibles: [BranchSwitcher.name],
+          context: new Context(ETaskName.BRANCH_SWITCHER, Logger.Prefixed(ETaskName.BRANCH_SWITCHER)),
+        },
       }),
       [
         new SubmodulesLinker( 
@@ -59,6 +65,10 @@ const main = async () => {
         new ProjectsConfigInFileUpdater(
           configPath,
           Logger.Prefixed(ProjectsConfigInFileUpdater.name),
+        ),
+        new BranchSwitcher(
+          config.projects,
+          Logger.Prefixed(BranchSwitcher.name),
         ),
       ],
     ),

@@ -342,7 +342,7 @@ export class SubmodulesLinker extends AbstractCrewMember {
         type: 'text',
         name: 'prTitle',
         message: `${this.logger.prefix} Enter the title for the PR (leave blank for default title):`,
-        initial: `[${project.name}] Update submodules`,
+        initial: `=${project.name}= Update submodules`,
       },
     ]);
 
