@@ -34,8 +34,8 @@ const main = async () => {
   new GitFlowCaptain(
     new TasksList([
       new Task(ETaskName.LINK_SUBMODULES, 'Interactive link merged submodules'),
-      new Task(ETaskName.CHANGE_REMOTE, 'Change remote for feature'),
-      new Task(ETaskName.BRANCH_SWITCHER, 'Switch projects and submodules to branch'),
+      new Task(ETaskName.CHANGE_REMOTE, 'Interactive change remote for feature'),
+      new Task(ETaskName.BRANCH_SWITCHER, 'Interactive switch branches'),
     ], Logger.Prefixed(TasksList.name)),
     new Crew(
       new CrewTaskAssignment({
