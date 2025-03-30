@@ -1,8 +1,11 @@
 # GitFlowCaptain
 
-It's a CLI tool that helps to automate the process of creating and merging branches, creating pull requests, and updating the version of the project.
-For current moment it is supports this tasks:
+It's a CLI tool that helps to automate the process of creating and merging branches, creating pull requests, updating the version of the project, and managing Git submodules.
+
+For current moment it supports these tasks:
 - Interactive link merged submodules
+- Interactive change remote for feature branches
+- Interactive switch branches between main project and submodules
   
 ## Requirements
 
@@ -64,7 +67,7 @@ Example Project Configuration:
 {
   "projects": [
     {
-      "name": "Name for your convinience",
+      "name": "Name for your convenience",
       "repositoryId": "repositoryNameOrIdDependsOnProvider",
       "path": "/absolute/path/to/project",
       "baseBranch": "develop",
@@ -100,7 +103,10 @@ This configuration file is essential for managing your projects and their depend
 2. Create a file `.env` based on `.env.example` and configure it accordingly.
 3. Create a file `config.json` based on `config.example.json` and configure it accordingly.
 4. Run the tool with the command `npm run start`
-
+5. Select the desired task from the interactive menu:
+   - Interactive link merged submodules
+   - Interactive change remote for feature branches
+   - Interactive switch branches
 
 ## Contributing
 
