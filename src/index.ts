@@ -20,6 +20,7 @@ import { ProjectsConfigInFileUpdater } from './crew/members/projects-config-in-f
 import { CrewTaskAssignment } from '@crew/crew-task-assignment';
 import { Context } from '@crew/context';
 import { BranchSwitcher } from '@crew/members/branch-swicher';
+import { PreconfiguredSubmodulesLinker } from './crew/members/preconfigured-submodules-linker';
 
 config();
 
@@ -31,17 +32,23 @@ const main = async () => {
     Logger.Prefixed(GeneralConfigs.name),
   ).parsedAndValidated();
 
+
   new GitFlowCaptain(
     new TasksList([
-      new Task(ETaskName.LINK_SUBMODULES, 'Interactive link merged submodules'),
-      new Task(ETaskName.CHANGE_REMOTE, 'Interactive change remote for feature'),
-      new Task(ETaskName.BRANCH_SWITCHER, 'Interactive switch branches'),
-    ], Logger.Prefixed(TasksList.name)),
+    new Task(ETaskName.LINK_SUBMODULES, 'Interactive link merged submodules'),
+    new Task(ETaskName.PRECONFIGURED_LINK_SUBMODULES, 'Preconfigured link merged submodules'),
+    new Task(ETaskName.CHANGE_REMOTE, 'Interactive change remote for feature'),
+    new Task(ETaskName.BRANCH_SWITCHER, 'Interactive switch branches'),
+  ], Logger.Prefixed(TasksList.name)),
     new Crew(
       new CrewTaskAssignment({
         [ETaskName.LINK_SUBMODULES]: {
           responsibles: [SubmodulesLinker.name],
           context: new Context(ETaskName.LINK_SUBMODULES, Logger.Prefixed(ETaskName.LINK_SUBMODULES)),
+        },
+        [ETaskName.PRECONFIGURED_LINK_SUBMODULES]: {
+          responsibles: [PreconfiguredSubmodulesLinker.name],
+          context: new Context(ETaskName.PRECONFIGURED_LINK_SUBMODULES, Logger.Prefixed(ETaskName.PRECONFIGURED_LINK_SUBMODULES)),
         },
         [ETaskName.CHANGE_REMOTE]: {
           responsibles: [RemoteChanger.name, ProjectsConfigInFileUpdater.name],
@@ -53,10 +60,15 @@ const main = async () => {
         },
       }),
       [
-        new SubmodulesLinker( 
+        new SubmodulesLinker(
           config.projects,
           config.prProviders,
           Logger.Prefixed(SubmodulesLinker.name),
+        ),
+        new PreconfiguredSubmodulesLinker(
+          config.projects,
+          config.prProviders,
+          Logger.Prefixed(PreconfiguredSubmodulesLinker.name),
         ),
         new RemoteChanger(
           config.projects,

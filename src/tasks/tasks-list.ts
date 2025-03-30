@@ -36,4 +36,21 @@ export class TasksList {
 
     return task;
   }
+
+  async select(): Promise<Task> {
+    const response = await prompts({
+      type: 'select',
+      name: 'task',
+      message: 'Which task would you like to execute?',
+      choices: this.tasks.map((task) => ({
+        title: task.title,
+        value: task,
+      })),
+    });
+
+    const selectedTask = response.task as Task;
+
+    this.logger.info(`Executing task "${selectedTask.title}"`);
+    return selectedTask;
+  }
 }

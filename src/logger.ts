@@ -48,4 +48,8 @@ export class Logger {
   public error(message: string) {
     ora(`${this.logPrefix} ${message}`).fail();
   }
+
+  public success(message: string) {
+    ora(`${this.logPrefix} ${message}`).succeed();
+  }
 }
