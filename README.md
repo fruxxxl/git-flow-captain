@@ -1,8 +1,9 @@
 # GitFlowCaptain
 
 It's a CLI tool that helps to automate the process of creating and merging branches, creating pull requests, updating the version of the project, and managing Git submodules.
-
 For current moment it supports these tasks:
+
+- Preconfigured link merged submodules
 - Interactive link merged submodules
 - Interactive change remote for feature branches
 - Interactive switch branches between main project and submodules
@@ -104,6 +105,7 @@ This configuration file is essential for managing your projects and their depend
 3. Create a file `config.json` based on `config.example.json` and configure it accordingly.
 4. Run the tool with the command `npm run start`
 5. Select the desired task from the interactive menu:
+   - Preconfigured link merged submodules
    - Interactive link merged submodules
    - Interactive change remote for feature branches
    - Interactive switch branches
