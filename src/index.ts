@@ -35,20 +35,20 @@ const main = async () => {
 
   new GitFlowCaptain(
     new TasksList([
-    new Task(ETaskName.LINK_SUBMODULES, 'Interactive link merged submodules'),
     new Task(ETaskName.PRECONFIGURED_LINK_SUBMODULES, 'Preconfigured link merged submodules'),
+    new Task(ETaskName.LINK_SUBMODULES, 'Interactive link merged submodules'),
     new Task(ETaskName.CHANGE_REMOTE, 'Interactive change remote for feature'),
     new Task(ETaskName.BRANCH_SWITCHER, 'Interactive switch branches'),
   ], Logger.Prefixed(TasksList.name)),
     new Crew(
       new CrewTaskAssignment({
-        [ETaskName.LINK_SUBMODULES]: {
-          responsibles: [SubmodulesLinker.name],
-          context: new Context(ETaskName.LINK_SUBMODULES, Logger.Prefixed(ETaskName.LINK_SUBMODULES)),
-        },
         [ETaskName.PRECONFIGURED_LINK_SUBMODULES]: {
           responsibles: [PreconfiguredSubmodulesLinker.name],
           context: new Context(ETaskName.PRECONFIGURED_LINK_SUBMODULES, Logger.Prefixed(ETaskName.PRECONFIGURED_LINK_SUBMODULES)),
+        },
+        [ETaskName.LINK_SUBMODULES]: {
+          responsibles: [SubmodulesLinker.name],
+          context: new Context(ETaskName.LINK_SUBMODULES, Logger.Prefixed(ETaskName.LINK_SUBMODULES)),
         },
         [ETaskName.CHANGE_REMOTE]: {
           responsibles: [RemoteChanger.name, ProjectsConfigInFileUpdater.name],
