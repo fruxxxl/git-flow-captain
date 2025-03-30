@@ -1,13 +1,13 @@
 import simpleGit, { SimpleGit } from 'simple-git';
 import prompts from 'prompts';
-import { TPrProvider, TProjectConfig, TSubmoduleConfig } from '../../configs/config-schema';
-import { ILogger, PullRequestProvider } from '../../types';
-import { AbstractCrewMember } from './abstract-crew-member';
-import { AzureDevOpsClient } from '../../pr-providers/azure-dev-ops/azure-dev-ops-client';
-import { GitlabClient } from '../../pr-providers/gitlab/gitlab-client';
+import { TPrProvider, TProjectConfig, TSubmoduleConfig } from '../../../configs/config-schema';
+import { ILogger, PullRequestProvider } from '../../../types';
+import { AbstractCrewMember } from '../abstract-crew-member';
+import { AzureDevOpsClient } from '../../../pr-providers/azure-dev-ops/azure-dev-ops-client';
+import { GitlabClient } from '../../../pr-providers/gitlab/gitlab-client';
 import * as fs from 'fs';
 
-export abstract class AbstractSubmodulesHandler extends AbstractCrewMember {
+export abstract class AbstractSubmodulesLinker extends AbstractCrewMember {
   constructor(
     protected readonly projectConfigs: TProjectConfig[],
     protected readonly prProviders: TPrProvider[],

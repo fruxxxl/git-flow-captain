@@ -1,8 +1,8 @@
 import prompts from 'prompts';
 import simpleGit, { SimpleGit } from 'simple-git';
-import { TPrProvider, TProjectConfig } from '../../configs/config-schema';
-import { ILogger } from '../../types';
-import { AbstractSubmodulesHandler } from './abstract-submodules-handler';
+import { TPrProvider, TProjectConfig } from '../../../configs/config-schema';
+import { ILogger } from '../../../types';
+import { AbstractSubmodulesLinker } from './abstract-submodules-linker';
 
 // Interface for preconfigured operations
 interface SubmoduleOperationPresets {
@@ -13,7 +13,7 @@ interface SubmoduleOperationPresets {
   prProvider: string;
 }
 
-export class PreconfiguredSubmodulesLinker extends AbstractSubmodulesHandler {
+export class PreconfiguredSubmodulesLinker extends AbstractSubmodulesLinker {
   private tempBranchNameMap = new Map<string, string>();
 
   constructor(

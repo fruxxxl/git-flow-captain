@@ -7,7 +7,7 @@ import 'module-alias/register'
 import { config } from 'dotenv';
 
 import { Logger } from './logger';
-import { SubmodulesLinker } from './crew/members/submodules-linker';
+import { InteractiveSubmodulesLinker } from './crew/members/submodules-linker/interactive-submodules-linker';
 import { GeneralConfigs } from './configs/general-configs';
 import { ETaskName } from './tasks/types';
 import { TasksList } from './tasks/tasks-list';
@@ -20,7 +20,7 @@ import { ProjectsConfigInFileUpdater } from './crew/members/projects-config-in-f
 import { CrewTaskAssignment } from '@crew/crew-task-assignment';
 import { Context } from '@crew/context';
 import { BranchSwitcher } from '@crew/members/branch-swicher';
-import { PreconfiguredSubmodulesLinker } from './crew/members/preconfigured-submodules-linker';
+import { PreconfiguredSubmodulesLinker } from './crew/members/submodules-linker/preconfigured-submodules-linker';
 
 config();
 
@@ -47,7 +47,7 @@ const main = async () => {
           context: new Context(ETaskName.PRECONFIGURED_LINK_SUBMODULES, Logger.Prefixed(ETaskName.PRECONFIGURED_LINK_SUBMODULES)),
         },
         [ETaskName.LINK_SUBMODULES]: {
-          responsibles: [SubmodulesLinker.name],
+          responsibles: [InteractiveSubmodulesLinker.name],
           context: new Context(ETaskName.LINK_SUBMODULES, Logger.Prefixed(ETaskName.LINK_SUBMODULES)),
         },
         [ETaskName.CHANGE_REMOTE]: {
@@ -60,10 +60,10 @@ const main = async () => {
         },
       }),
       [
-        new SubmodulesLinker(
+        new InteractiveSubmodulesLinker(
           config.projects,
           config.prProviders,
-          Logger.Prefixed(SubmodulesLinker.name),
+          Logger.Prefixed(InteractiveSubmodulesLinker.name),
         ),
         new PreconfiguredSubmodulesLinker(
           config.projects,

@@ -1,11 +1,11 @@
 import simpleGit, { SimpleGit } from 'simple-git';
 import prompts from 'prompts';
-import { TPrProvider, TProjectConfig } from '../../configs/config-schema';
-import { ILogger } from '../../types';
+import { TPrProvider, TProjectConfig } from '../../../configs/config-schema';
+import { ILogger } from '../../../types';
 
-import { AbstractSubmodulesHandler } from './abstract-submodules-handler';
+import { AbstractSubmodulesLinker } from './abstract-submodules-linker';
 
-export class SubmodulesLinker extends AbstractSubmodulesHandler {
+export class InteractiveSubmodulesLinker extends AbstractSubmodulesLinker {
   constructor(
     protected readonly projectConfigs: TProjectConfig[],
     protected readonly prProviders: TPrProvider[],
