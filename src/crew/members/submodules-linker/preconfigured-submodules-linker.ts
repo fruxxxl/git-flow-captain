@@ -27,9 +27,13 @@ export class PreconfiguredSubmodulesLinker extends AbstractSubmodulesLinker {
   public async execute() {
     // Selecting projects
     const selectedProjects = await this.selectProjectsToUpdate();
+    if (selectedProjects.length === 0) {
+      this.logger.info('No projects selected. Exiting.');
+      return;
+    }
     this.logger.info(`Selected projects: ${selectedProjects.map((p) => p.name).join(', ')}`);
 
-    // Getting presets for all projects
+    // Getting common presets for all selected projects
     const projectsWithPresets = await this.getProjectsWithPresets(selectedProjects);
 
     // Displaying summary of settings for all projects
@@ -53,7 +57,11 @@ export class PreconfiguredSubmodulesLinker extends AbstractSubmodulesLinker {
       this.logger.info(`Configuring updating submodules for project ${project.name}`);
 
       const presets = projectsWithPresets.get(project);
-      if (!presets) continue;
+      // Should always exist due to the logic in getProjectsWithPresets, but check for safety
+      if (!presets) {
+        this.logger.warn(`Presets not found for project ${project.name}. Skipping.`);
+        continue;
+      }
 
       // Getting branch name from map
       let featureBranchName = this.tempBranchNameMap.get(project.name) || '';
@@ -78,10 +86,11 @@ export class PreconfiguredSubmodulesLinker extends AbstractSubmodulesLinker {
           this.logger.error(
             `Failed to checkout/create branch ${featureBranchName}: ${error instanceof Error ? error.message : 'Unknown error'}`,
           );
+          // Fallback to prompting for this specific project if common branch logic failed
           featureBranchName = await this.createOrSelectBranch(project, false);
         }
       } else {
-        // If branch name was not specified, requesting it
+        // If branch name was not specified (e.g., user left common name empty), requesting it per project
         featureBranchName = await this.createOrSelectBranch(project, false);
       }
 
@@ -106,7 +115,10 @@ export class PreconfiguredSubmodulesLinker extends AbstractSubmodulesLinker {
 
       // Skipping if no submodules selected
       if (updatedSubmodules.length === 0) {
-        continue;
+        this.logger.info(
+          `No submodules selected or updated for ${project.name}. Skipping subsequent steps for this project.`,
+        );
+        continue; // Skip commit, push, PR for this project
       }
 
       // Preparing submodules for commit
@@ -132,102 +144,149 @@ export class PreconfiguredSubmodulesLinker extends AbstractSubmodulesLinker {
       if (presets.createPR) {
         const prProvider = this.getPrProviderByName(presets.prProvider);
         if (prProvider) {
-          this.logger.info(`Creating PR using ${presets.prProvider}...`);
+          this.logger.info(`Creating PR using ${presets.prProvider} for ${project.name}...`);
           const defaultTitle = `Update submodules for ${project.name}`;
-          const taskId = await this.promptForTaskId();
+          const taskId = await this.promptForTaskId(); // Assuming you might still want task ID per PR
           const prTitle = taskId ? `${taskId} ${defaultTitle}` : defaultTitle;
 
           await this.createPullRequest(project, featureBranchName, prProvider, prTitle);
-          this.logger.success('PR request created successfully');
+          this.logger.success(`PR request created successfully for ${project.name}`);
         } else {
-          this.logger.warn(`PR provider ${presets.prProvider} not found. Skipping PR creation.`);
+          // This case should be less likely now if a provider was selected upfront
+          this.logger.warn(`PR provider ${presets.prProvider} not found. Skipping PR creation for ${project.name}.`);
         }
       }
     }
+    this.logger.info('All selected projects processed.');
   }
 
+  /**
+   * Prompts the user for common settings (branch name, operations, PR provider)
+   * to be applied to all selected projects.
+   * @param selectedProjects - The list of projects selected by the user.
+   * @returns A map where keys are project configs and values are the common operation presets.
+   */
   private async getProjectsWithPresets(
     selectedProjects: TProjectConfig[],
   ): Promise<Map<TProjectConfig, SubmoduleOperationPresets>> {
     const projectsWithPresets = new Map<TProjectConfig, SubmoduleOperationPresets>();
 
-    // Requesting common branch name for all projects
+    // 1. Request common branch name for all projects
     const { commonBranchName } = await prompts({
       type: 'text',
       name: 'commonBranchName',
-      message: 'Enter a common branch name for all projects (leave empty for separate branch names):',
+      message:
+        'Enter a common branch name for all selected projects (leave empty to name branches individually later):',
     });
 
-    // Getting presets for each project
-    for (const project of selectedProjects) {
-      const { presetChoices } = await prompts({
-        type: 'multiselect',
-        name: 'presetChoices',
-        message: `Configure operations for ${project.name}:`,
-        choices: [
-          { title: 'Update feature branch from develop', value: 'updateFeatureBranch', selected: true },
-          { title: 'Commit changes', value: 'commitChanges', selected: true },
-          { title: 'Push to remote', value: 'pushToRemote', selected: true },
-          { title: 'Create PR request', value: 'createPR', selected: true },
-        ],
+    // 2. Request common operation presets for all projects
+    const { presetChoices } = await prompts({
+      type: 'multiselect',
+      name: 'presetChoices',
+      message: 'Select common operations for ALL selected projects:',
+      choices: [
+        { title: 'Update feature branch from base branch', value: 'updateFeatureBranch', selected: true },
+        { title: 'Commit changes', value: 'commitChanges', selected: true },
+        { title: 'Push to remote', value: 'pushToRemote', selected: true },
+        { title: 'Create PR/MR request', value: 'createPR', selected: true },
+      ],
+      hint: '- Use space to select. Return to submit',
+    });
+
+    // Check if presetChoices is defined (user might cancel)
+    if (!presetChoices) {
+      this.logger.warn('Operation cancelled during preset selection.');
+      // Return an empty map or handle cancellation appropriately
+      return projectsWithPresets;
+    }
+
+    const createPRSelected = presetChoices.includes('createPR');
+    let selectedPrProviderName = this.prProviders[0]?.provider || ''; // Default to first provider or empty string
+
+    // 3. If PR is enabled and there are multiple providers, request provider ONCE
+    if (createPRSelected && this.prProviders.length > 1) {
+      const { provider } = await prompts({
+        type: 'select',
+        name: 'provider',
+        message: 'Select PR/MR provider for ALL selected projects:',
+        choices: this.prProviders.map((p) => ({
+          title: p.provider,
+          value: p.provider,
+        })),
+        initial: 0,
       });
-
-      const presets: SubmoduleOperationPresets = {
-        updateFeatureBranch: presetChoices.includes('updateFeatureBranch'),
-        commitChanges: presetChoices.includes('commitChanges'),
-        pushToRemote: presetChoices.includes('pushToRemote'),
-        createPR: presetChoices.includes('createPR'),
-        prProvider: 'Gitlab',
-      };
-
-      // If PR is enabled and there are multiple providers, request provider
-      if (presets.createPR && this.prProviders.length > 1) {
-        const { provider } = await prompts({
-          type: 'select',
-          name: 'provider',
-          message: 'Select PR provider:',
-          choices: this.prProviders.map((provider) => ({
-            title: provider.provider,
-            value: provider.provider,
-          })),
-          initial: 0,
-        });
-
-        presets.prProvider = provider;
+      // Check if provider is defined (user might cancel)
+      if (provider === undefined) {
+        this.logger.warn('Operation cancelled during PR provider selection.');
+        // Return an empty map or handle cancellation appropriately
+        return projectsWithPresets;
       }
+      selectedPrProviderName = provider;
+    } else if (createPRSelected && this.prProviders.length === 1) {
+      selectedPrProviderName = this.prProviders[0].provider; // Auto-select if only one provider
+    } else if (createPRSelected && this.prProviders.length === 0) {
+      this.logger.warn('Create PR selected, but no PR providers configured. PR creation will be skipped.');
+      selectedPrProviderName = '' as any; // No provider available
+    }
 
-      // Saving branch name
+    // 4. Populate the map and branch name map with common settings
+    const commonPresets: SubmoduleOperationPresets = {
+      updateFeatureBranch: presetChoices.includes('updateFeatureBranch'),
+      commitChanges: presetChoices.includes('commitChanges'),
+      pushToRemote: presetChoices.includes('pushToRemote'),
+      createPR: createPRSelected && !!selectedPrProviderName, // Only true if selected AND a provider is available/chosen
+      prProvider: selectedPrProviderName,
+    };
+
+    for (const project of selectedProjects) {
+      // Save common branch name (or empty string) for later use
       this.tempBranchNameMap.set(project.name, commonBranchName || '');
-
-      projectsWithPresets.set(project, presets);
+      // Apply common presets to this project
+      projectsWithPresets.set(project, { ...commonPresets }); // Use spread to ensure a separate object if needed later
     }
 
     return projectsWithPresets;
   }
 
+  /**
+   * Displays a summary of the configuration for all selected projects based on common presets.
+   * @param projects - The list of selected projects.
+   * @param projectsWithPresets - The map containing projects and their assigned (common) presets.
+   */
   private displayConfigurationSummary(
     projects: TProjectConfig[],
     projectsWithPresets: Map<TProjectConfig, SubmoduleOperationPresets>,
   ) {
     this.logger.info('════════════════════════════════════════════');
-    this.logger.info('   CONFIGURATION SUMMARY');
+    this.logger.info('   CONFIGURATION SUMMARY (Applied to All)');
     this.logger.info('════════════════════════════════════════════');
 
+    // Display common settings once
+    const firstProject = projects[0]; // Get presets from the first project (they are all the same)
+    const commonPresets = projectsWithPresets.get(firstProject);
+
+    if (!commonPresets) {
+      this.logger.warn('No configuration presets found to display.');
+      this.logger.info('════════════════════════════════════════════\n');
+      return;
+    }
+
+    const commonBranchName = this.tempBranchNameMap.get(firstProject.name);
+    this.logger.info(`Common Branch Name: ${commonBranchName || 'Individual branches will be created/selected'}`);
+    this.logger.info('Common Operations:');
+    // Assuming baseBranch might differ per project, mention it generically or list projects below
+    this.logger.info(`  ➤ Update feature branch from base branch: ${commonPresets.updateFeatureBranch ? '✅' : '❌'}`);
+    this.logger.info(`  ➤ Commit changes: ${commonPresets.commitChanges ? '✅' : '❌'}`);
+    this.logger.info(`  ➤ Push to remote: ${commonPresets.pushToRemote ? '✅' : '❌'}`);
+    this.logger.info(`  ➤ Create PR/MR: ${commonPresets.createPR ? '✅' : '❌'}`);
+
+    if (commonPresets.createPR) {
+      this.logger.info(`  ➤ PR/MR Provider: ${commonPresets.prProvider}`);
+    }
+
+    this.logger.info('\nAffecting Projects:');
     for (const project of projects) {
-      const presets = projectsWithPresets.get(project);
-      if (!presets) continue;
-
-      this.logger.info(`\n📁 Project: ${project.name}`);
-      this.logger.info(`   Branch: ${this.tempBranchNameMap.get(project.name) || 'New branch will be created'}`);
-      this.logger.info('   Operations:');
-      this.logger.info(`     ➤ Update branch from ${project.baseBranch}: ${presets.updateFeatureBranch ? '✅' : '❌'}`);
-      this.logger.info(`     ➤ Commit changes: ${presets.commitChanges ? '✅' : '❌'}`);
-      this.logger.info(`     ➤ Push to remote ${project.remoteName}: ${presets.pushToRemote ? '✅' : '❌'}`);
-      this.logger.info(`     ➤ Create PR/MR: ${presets.createPR ? '✅' : '❌'}`);
-
-      if (presets.createPR) {
-        this.logger.info(`     ➤ PR/MR Provider: ${presets.prProvider}`);
-      }
+      this.logger.info(`  📁 ${project.name} (Base: ${project.baseBranch}, Remote: ${project.remoteName})`);
     }
 
     this.logger.info('\n════════════════════════════════════════════');
