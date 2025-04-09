@@ -239,8 +239,8 @@ export abstract class AbstractSubmodulesLinker extends AbstractCrewMember {
 
   protected async commitSubmoduleChanges(project: TProjectConfig, commitMessage: string): Promise<void> {
     const projectGit: SimpleGit = simpleGit(project.path);
-    await projectGit.add('.');
     await projectGit.commit(commitMessage);
+    this.logger.info(`Committed submodule changes in project ${project.name} with message: "${commitMessage}"`);
   }
 
   protected generateCommitMessage(updatedSubmodules: TSubmoduleConfig[]): string {
