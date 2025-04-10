@@ -4,13 +4,24 @@ import { TPrProvider, TProjectConfig } from '../../../configs/config-schema';
 import { ILogger } from '../../../types';
 import { AbstractSubmodulesLinker } from './abstract-submodules-linker';
 
-// Interface for preconfigured operations
+/**
+ * @interface SubmoduleOperationPresets
+ * @description Defines the set of operations to be performed on submodules for a project,
+ *              along with PR configuration if enabled.
+ * @property {boolean} updateFeatureBranch - Whether to update the feature branch from the base branch.
+ * @property {boolean} commitChanges - Whether to commit the submodule updates.
+ * @property {boolean} pushToRemote - Whether to push the changes to the remote repository.
+ * @property {boolean} createPR - Whether to create a Pull/Merge Request.
+ * @property {string} prProvider - The name of the PR provider to use (e.g., 'Gitlab', 'AzureDevOps'). Relevant only if createPR is true.
+ * @property {string} [taskId] - Optional task ID to prepend to the PR title.
+ */
 interface SubmoduleOperationPresets {
   updateFeatureBranch: boolean;
   commitChanges: boolean;
   pushToRemote: boolean;
   createPR: boolean;
   prProvider: string;
+  taskId?: string;
 }
 
 export class PreconfiguredSubmodulesLinker extends AbstractSubmodulesLinker {
@@ -146,13 +157,12 @@ export class PreconfiguredSubmodulesLinker extends AbstractSubmodulesLinker {
         if (prProvider) {
           this.logger.info(`Creating PR using ${presets.prProvider} for ${project.name}...`);
           const defaultTitle = `Update submodules for ${project.name}`;
-          const taskId = await this.promptForTaskId(); // Assuming you might still want task ID per PR
+          const taskId = presets.taskId;
           const prTitle = taskId ? `${taskId} ${defaultTitle}` : defaultTitle;
 
           await this.createPullRequest(project, featureBranchName, prProvider, prTitle);
           this.logger.success(`PR request created successfully for ${project.name}`);
         } else {
-          // This case should be less likely now if a provider was selected upfront
           this.logger.warn(`PR provider ${presets.prProvider} not found. Skipping PR creation for ${project.name}.`);
         }
       }
@@ -161,7 +171,7 @@ export class PreconfiguredSubmodulesLinker extends AbstractSubmodulesLinker {
   }
 
   /**
-   * Prompts the user for common settings (branch name, operations, PR provider)
+   * Prompts the user for common settings (branch name, operations, PR provider, task ID)
    * to be applied to all selected projects.
    * @param selectedProjects - The list of projects selected by the user.
    * @returns A map where keys are project configs and values are the common operation presets.
@@ -171,7 +181,7 @@ export class PreconfiguredSubmodulesLinker extends AbstractSubmodulesLinker {
   ): Promise<Map<TProjectConfig, SubmoduleOperationPresets>> {
     const projectsWithPresets = new Map<TProjectConfig, SubmoduleOperationPresets>();
 
-    // 1. Request common branch name for all projects
+    // 1. Request common branch name
     const { commonBranchName } = await prompts({
       type: 'text',
       name: 'commonBranchName',
@@ -179,7 +189,7 @@ export class PreconfiguredSubmodulesLinker extends AbstractSubmodulesLinker {
         'Enter a common branch name for all selected projects (leave empty to name branches individually later):',
     });
 
-    // 2. Request common operation presets for all projects
+    // 2. Request common operation presets
     const { presetChoices } = await prompts({
       type: 'multiselect',
       name: 'presetChoices',
@@ -193,17 +203,16 @@ export class PreconfiguredSubmodulesLinker extends AbstractSubmodulesLinker {
       hint: '- Use space to select. Return to submit',
     });
 
-    // Check if presetChoices is defined (user might cancel)
     if (!presetChoices) {
       this.logger.warn('Operation cancelled during preset selection.');
-      // Return an empty map or handle cancellation appropriately
       return projectsWithPresets;
     }
 
     const createPRSelected = presetChoices.includes('createPR');
-    let selectedPrProviderName = this.prProviders[0]?.provider || ''; // Default to first provider or empty string
+    let selectedPrProviderName = this.prProviders[0]?.provider || '';
+    let commonTaskId: string | undefined = undefined; // Variable to store common task ID
 
-    // 3. If PR is enabled and there are multiple providers, request provider ONCE
+    // 3. Handle PR Provider selection (existing logic)
     if (createPRSelected && this.prProviders.length > 1) {
       const { provider } = await prompts({
         type: 'select',
@@ -215,34 +224,44 @@ export class PreconfiguredSubmodulesLinker extends AbstractSubmodulesLinker {
         })),
         initial: 0,
       });
-      // Check if provider is defined (user might cancel)
       if (provider === undefined) {
         this.logger.warn('Operation cancelled during PR provider selection.');
-        // Return an empty map or handle cancellation appropriately
         return projectsWithPresets;
       }
       selectedPrProviderName = provider;
     } else if (createPRSelected && this.prProviders.length === 1) {
-      selectedPrProviderName = this.prProviders[0].provider; // Auto-select if only one provider
+      selectedPrProviderName = this.prProviders[0].provider;
     } else if (createPRSelected && this.prProviders.length === 0) {
       this.logger.warn('Create PR selected, but no PR providers configured. PR creation will be skipped.');
-      selectedPrProviderName = '' as any; // No provider available
+      selectedPrProviderName = '' as any; // Ensure PR creation is disabled later
     }
 
-    // 4. Populate the map and branch name map with common settings
+    // Determine if PR creation is actually possible
+    const canCreatePR = createPRSelected && !!selectedPrProviderName;
+
+    // 4. Request common Task ID if PR creation is enabled
+    if (canCreatePR) {
+      const { taskId } = await prompts({
+        type: 'text',
+        name: 'taskId',
+        message: 'Enter common Task ID for PR titles (optional, leave empty if none):',
+      });
+      commonTaskId = taskId || undefined; // Store taskId, ensure undefined if empty
+    }
+
+    // 5. Populate the map and branch name map with common settings
     const commonPresets: SubmoduleOperationPresets = {
       updateFeatureBranch: presetChoices.includes('updateFeatureBranch'),
       commitChanges: presetChoices.includes('commitChanges'),
       pushToRemote: presetChoices.includes('pushToRemote'),
-      createPR: createPRSelected && !!selectedPrProviderName, // Only true if selected AND a provider is available/chosen
+      createPR: canCreatePR, // Use the calculated value
       prProvider: selectedPrProviderName,
+      taskId: commonTaskId, // Add the common task ID
     };
 
     for (const project of selectedProjects) {
-      // Save common branch name (or empty string) for later use
       this.tempBranchNameMap.set(project.name, commonBranchName || '');
-      // Apply common presets to this project
-      projectsWithPresets.set(project, { ...commonPresets }); // Use spread to ensure a separate object if needed later
+      projectsWithPresets.set(project, { ...commonPresets });
     }
 
     return projectsWithPresets;
@@ -282,6 +301,10 @@ export class PreconfiguredSubmodulesLinker extends AbstractSubmodulesLinker {
 
     if (commonPresets.createPR) {
       this.logger.info(`  ➤ PR/MR Provider: ${commonPresets.prProvider}`);
+      // Display Task ID if provided
+      if (commonPresets.taskId) {
+        this.logger.info(`  ➤ Common Task ID: ${commonPresets.taskId}`);
+      }
     }
 
     this.logger.info('\nAffecting Projects:');
