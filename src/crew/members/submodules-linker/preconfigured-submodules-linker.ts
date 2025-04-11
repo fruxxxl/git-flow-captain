@@ -63,8 +63,8 @@ export class PreconfiguredSubmodulesLinker extends AbstractSubmodulesLinker {
       return;
     }
 
-    // Array to store details of created PRs
-    const createdPrs: { name: string; url: string }[] = [];
+    // Array to store details of created PRs, now including the title
+    const createdPrs: { name: string; url: string; title: string }[] = [];
 
     // Processing each project
     for (const project of selectedProjects) {
@@ -175,36 +175,31 @@ export class PreconfiguredSubmodulesLinker extends AbstractSubmodulesLinker {
 
       // Creating PR, if setting is enabled
       if (presets.createPR) {
-        // 1. Get the configuration for the selected provider
         const prProviderConfig = this.getPrProviderConfigByName(presets.prProvider);
-
         if (prProviderConfig) {
-          // 2. Instantiate the provider using the configuration
           const prProviderInstance = this.instantiatePrProvider(prProviderConfig);
-
           if (prProviderInstance) {
-            // 3. Proceed with PR creation using the instance
             this.logger.info(`[${project.name}] Creating PR/MR using ${presets.prProvider}...`);
             const defaultTitle = `Update submodules for ${project.name}`;
             const taskId = presets.taskId;
+            // Generate the final PR title
             const prTitle = taskId ? `${taskId} ${defaultTitle}` : defaultTitle;
             this.logger.info(`[${project.name}] PR/MR Title: "${prTitle}"`);
 
-            // Call createPullRequest with the INSTANCE
             const prUrl = await this.createPullRequest(
               project,
               featureBranchName,
-              prProviderInstance, // Pass the instance here
+              prProviderInstance,
               prTitle,
+              // Optionally add description generation here if needed
             );
 
             if (prUrl) {
-              createdPrs.push({ name: project.name, url: prUrl });
+              createdPrs.push({ name: project.name, url: prUrl, title: prTitle });
             } else {
               this.logger.warn(`[${project.name}] Could not obtain PR/MR URL.`);
             }
           } else {
-            // Error already logged by instantiatePrProvider
             this.logger.warn(
               `[${project.name}] Skipping PR creation due to instantiation failure for provider '${presets.prProvider}'.`,
             );
@@ -222,16 +217,16 @@ export class PreconfiguredSubmodulesLinker extends AbstractSubmodulesLinker {
     }
     this.logger.info('\nAll selected projects processed.');
 
-    // Display summary of created PRs if any
+    // Display summary of created PRs if any, using console.log for clean output
     if (createdPrs.length > 0) {
-      this.logger.info('\n════════════════════════════════════════════');
-      this.logger.info('   CREATED PULL/MERGE REQUESTS');
-      this.logger.info('════════════════════════════════════════════');
+      const border = '════════════════════════════════════════════';
+      console.log(`\n${border}`);
+      console.log('   CREATED PULL/MERGE REQUESTS');
+      console.log(border);
       for (const pr of createdPrs) {
-        // Log in Markdown format
-        this.logger.info(`- [${pr.name}](${pr.url})`);
+        console.log(`- [${pr.title}](${pr.url})`);
       }
-      this.logger.info('════════════════════════════════════════════\n');
+      console.log(`${border}\n`);
     }
   }
 
