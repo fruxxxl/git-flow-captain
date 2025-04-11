@@ -6,6 +6,7 @@ import { AbstractCrewMember } from '../abstract-crew-member';
 import { AzureDevOpsClient } from '../../../pr-providers/azure-dev-ops/azure-dev-ops-client';
 import { GitlabClient } from '../../../pr-providers/gitlab/gitlab-client';
 import * as fs from 'fs';
+import type { IPrProvider } from '../../../pr-providers/types';
 
 export abstract class AbstractSubmodulesLinker extends AbstractCrewMember {
   constructor(
@@ -248,30 +249,92 @@ export abstract class AbstractSubmodulesLinker extends AbstractCrewMember {
     return `feat(submodules): update links \n\n${submodulesList}`;
   }
 
+  /**
+   * Finds the PR provider configuration by name.
+   * @param providerName - The name of the provider (e.g., 'Gitlab', 'AzureDevOps').
+   * @returns The configuration object for the provider, or undefined if not found.
+   * @protected
+   */
+  protected getPrProviderConfigByName(providerName: string): TPrProvider | undefined {
+    return this.prProviders.find((provider) => provider.provider === providerName);
+  }
+
+  /**
+   * Creates an instance of a PR provider based on its configuration.
+   * @param config - The configuration object for the PR provider.
+   * @returns An instance implementing IPrProvider, or undefined if the provider type is unknown.
+   * @protected
+   */
+  protected instantiatePrProvider(config: TPrProvider): IPrProvider | undefined {
+    switch (config.provider) {
+      case PullRequestProvider.Gitlab:
+        // Ensure config has 'host' property if needed by GitlabClient constructor
+        if (!config.host) {
+          this.logger.error(`GitLab provider configuration for '${config.provider}' is missing 'host'.`);
+          return undefined;
+        }
+        return new GitlabClient(config.host);
+      case PullRequestProvider.AzureDevOps:
+        // Ensure config has necessary properties for AzureDevOpsClient constructor
+        if (!config.organization || !config.project || !config.host) {
+          this.logger.error(
+            `Azure DevOps provider configuration for '${config.provider}' is missing 'organization', 'project', or 'host'.`,
+          );
+          return undefined;
+        }
+        return new AzureDevOpsClient(config.organization, config.project, config.host);
+      default:
+        this.logger.error(`Unknown PR provider type specified in configuration: ${config.provider}`);
+        return undefined;
+    }
+  }
+
+  /**
+   * Creates a pull request using an instantiated PR provider.
+   * @param project - The project configuration.
+   * @param featureBranchName - The name of the feature branch (source branch).
+   * @param prProviderInstance - The instantiated PR provider client (implements IPrProvider).
+   * @param prTitle - The title for the pull request.
+   * @returns The URL of the created pull request, or undefined if creation failed or URL is unavailable.
+   * @protected
+   */
   protected async createPullRequest(
     project: TProjectConfig,
     featureBranchName: string,
-    prProvider: TPrProvider,
-    title: string,
-  ): Promise<void> {
-    if (prProvider.provider === PullRequestProvider.AzureDevOps) {
-      const azureDevOpsClient = new AzureDevOpsClient(prProvider.host, prProvider.project, prProvider.organization);
-      await azureDevOpsClient.createPullRequest({
-        repositoryId: project.repositoryId,
-        sourceBranch: featureBranchName,
-        targetBranch: project.baseBranch,
-        title: title,
-        description: 'Update submodules',
-      });
-    } else if (prProvider.provider === PullRequestProvider.Gitlab) {
-      const gitlabClient = new GitlabClient(prProvider.host);
-      await gitlabClient.createMergeRequest({
-        sourceBranch: featureBranchName,
-        targetBranch: project.baseBranch,
-        title: title,
-        description: 'Update submodules',
-        repositoryId: project.repositoryId,
-      });
+    prProviderInstance: IPrProvider, // Parameter name emphasizes it's an instance
+    prTitle: string,
+    description?: string,
+  ): Promise<string | undefined> {
+    try {
+      // Use the provider instance directly
+      this.logger.info(`[${project.name}] Attempting to create PR/MR via ${prProviderInstance.constructor.name}...`);
+      // Pass necessary arguments to the provider's createPr method
+      const prUrl = await prProviderInstance.createPr(
+        project,
+        featureBranchName,
+        project.baseBranch, // Assuming baseBranch is the target
+        prTitle,
+        description,
+      );
+
+      if (prUrl) {
+        this.logger.success(`[${project.name}] PR/MR created successfully at: ${prUrl}`);
+        return prUrl;
+      } else {
+        // This case might happen if the API call succeeds but doesn't return a URL
+        this.logger.warn(
+          `[${project.name}] PR/MR was created (or API call succeeded), but no URL was returned by the provider.`,
+        );
+        return undefined;
+      }
+    } catch (error) {
+      // Error logging is now more specific within the clients, but keep a general catch here
+      this.logger.error(
+        `[${project.name}] Failed to create PR/MR using ${prProviderInstance.constructor.name}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      // Optionally re-log the specific error message if clients don't log enough detail
+      // console.error(error); // For debugging
+      return undefined;
     }
   }
 
@@ -410,7 +473,7 @@ export abstract class AbstractSubmodulesLinker extends AbstractCrewMember {
   protected async createPullRequestInteractive(
     project: TProjectConfig,
     featureProjectBranch: string,
-    description: string,
+    description?: string,
   ): Promise<void> {
     const { isCreatePr } = await prompts({
       type: 'confirm',
@@ -419,9 +482,7 @@ export abstract class AbstractSubmodulesLinker extends AbstractCrewMember {
       initial: true,
     });
 
-    if (!isCreatePr) {
-      return;
-    }
+    if (!isCreatePr) return;
 
     const prProvidersChoices = this.prProviders.map(({ provider }) => ({
       title: provider,
@@ -452,78 +513,45 @@ export abstract class AbstractSubmodulesLinker extends AbstractCrewMember {
       },
     ]);
 
-    const prOptionsResponse = {
-      prProvider: prProviderName,
-      prTitle,
-    };
+    const prProviderConfig = this.getPrProviderConfigByName(prProviderName); // Get config first
+    if (!prProviderConfig) {
+      this.logger.error(`PR provider configuration '${prProviderName}' not found.`);
+      return;
+    }
 
-    switch (prOptionsResponse.prProvider) {
-      case PullRequestProvider.AzureDevOps: {
-        const prProvider = this.prProviders.find((prProvider) => prProvider.provider === prOptionsResponse.prProvider);
-        if (!prProvider) {
-          this.logger.error(
-            `PR provider ${prOptionsResponse.prProvider} is not configured for project ${project.name} (${project.repositoryId}). See Readme for more information`,
-          );
-          return;
-        }
+    const prProviderInstance = this.instantiatePrProvider(prProviderConfig); // Instantiate the provider
+    if (!prProviderInstance) {
+      // instantiatePrProvider already logged the error
+      return;
+    }
 
-        const createPRSpinner = this.logger.makeAwaiting(
-          `Creating PR request using ${prOptionsResponse.prProvider}...`,
+    const finalPrTitle = taskId ? `${taskId} ${prTitle}` : prTitle;
+
+    const createPRSpinner = this.logger.makeAwaiting(`Creating PR request using ${prProviderName}...`);
+
+    try {
+      // Call the shared createPullRequest with the instance
+      const prUrl = await this.createPullRequest(
+        project,
+        featureProjectBranch,
+        prProviderInstance, // Pass the instance
+        finalPrTitle,
+        description,
+      );
+      if (prUrl) {
+        this.logger.successAwaiting('PR request created successfully', createPRSpinner);
+      } else {
+        this.logger.warnAwaiting(
+          'PR request may have been created, but no URL was returned.', // Adjusted message
+          createPRSpinner,
         );
-
-        try {
-          const azureDevOpsClient = new AzureDevOpsClient(prProvider.host, prProvider.project, prProvider.organization);
-          await azureDevOpsClient.createPullRequest({
-            repositoryId: project.repositoryId,
-            sourceBranch: featureProjectBranch,
-            targetBranch: project.baseBranch,
-            title: `${taskId ? `${taskId} ` : ''}${prOptionsResponse.prTitle}`,
-            description,
-          });
-
-          this.logger.successAwaiting('PR request created successfully', createPRSpinner);
-        } catch (error) {
-          this.logger.failAwaiting(
-            `Error creating PR: ${error instanceof Error ? error.message : 'Unknown error'}`,
-            createPRSpinner,
-          );
-        }
-        break;
       }
-      case PullRequestProvider.Gitlab: {
-        const prProvider = this.prProviders.find((prProvider) => prProvider.provider === prOptionsResponse.prProvider);
-        if (!prProvider) {
-          this.logger.error(
-            `PR provider ${prOptionsResponse.prProvider} is not configured for project ${project.name} (${project.repositoryId}). See Readme for more information`,
-          );
-          return;
-        }
-
-        const createPRSpinner = this.logger.makeAwaiting(
-          `Creating PR request using ${prOptionsResponse.prProvider}...`,
-        );
-
-        try {
-          const gitlabClient = new GitlabClient(prProvider.host);
-          await gitlabClient.createMergeRequest({
-            sourceBranch: featureProjectBranch,
-            targetBranch: project.baseBranch,
-            title: `${taskId ? `${taskId} ` : ''}${prOptionsResponse.prTitle}`,
-            description,
-            repositoryId: project.repositoryId,
-          });
-
-          this.logger.successAwaiting('PR request created successfully', createPRSpinner);
-        } catch (error) {
-          this.logger.failAwaiting(
-            `Error creating PR: ${error instanceof Error ? error.message : 'Unknown error'}`,
-            createPRSpinner,
-          );
-        }
-        break;
-      }
-      default:
-        this.logger.error('Invalid PR provider');
+    } catch (error) {
+      // createPullRequest already logs the error, just update spinner
+      this.logger.failAwaiting(
+        `Error creating PR: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        createPRSpinner,
+      );
     }
   }
 }

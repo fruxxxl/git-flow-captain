@@ -1,7 +1,8 @@
-import { ICreateMergeRequestParams } from './types';
 import { Gitlab } from '@gitbeaker/rest';
+import type { IPrProvider } from '../types';
+import type { TProjectConfig } from '../../configs/config-schema';
 
-export class GitlabClient {
+export class GitlabClient implements IPrProvider {
   private api: InstanceType<typeof Gitlab>;
 
   constructor(private readonly host: string) {
@@ -15,23 +16,30 @@ export class GitlabClient {
     });
   }
 
-  public async createMergeRequest(params: ICreateMergeRequestParams) {
-    const { sourceBranch, targetBranch, title, description, labels = [] } = params;
-
+  /**
+   * Creates a GitLab Merge Request.
+   * @implements IPrProvider['createPr']
+   */
+  public async createPr(
+    project: TProjectConfig,
+    sourceBranch: string,
+    targetBranch: string,
+    title: string,
+    description: string = 'Update submodules',
+  ): Promise<string | undefined> {
     try {
-      const response = await this.api.MergeRequests.create(params.repositoryId, sourceBranch, targetBranch, title, {
+      const response = await this.api.MergeRequests.create(project.repositoryId, sourceBranch, targetBranch, title, {
         description,
-        labels,
         squash: true,
         removeSourceBranch: true,
       });
 
-      console.log('Merge Request created successfully:', response.web_url);
-
-      return response;
+      return response?.web_url as string | undefined;
     } catch (error: any) {
-      console.error('Error creating Merge Request:', error.message);
-      throw error; // Rethrow the error for handling upstream
+      console.error(
+        `GitlabClient Error creating Merge Request for project ${project.repositoryId}: ${error.message ?? error}`,
+      );
+      throw error;
     }
   }
 }

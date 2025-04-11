@@ -63,13 +63,17 @@ export class PreconfiguredSubmodulesLinker extends AbstractSubmodulesLinker {
       return;
     }
 
+    // Array to store details of created PRs
+    const createdPrs: { name: string; url: string }[] = [];
+
     // Processing each project
     for (const project of selectedProjects) {
-      this.logger.info(`Configuring updating submodules for project ${project.name}`);
+      // Log the start of processing for this specific project
+      this.logger.info(`\n--- Processing Project: ${project.name} ---`);
 
       const presets = projectsWithPresets.get(project);
-      // Should always exist due to the logic in getProjectsWithPresets, but check for safety
       if (!presets) {
+        // Log context added implicitly by the outer loop's start message
         this.logger.warn(`Presets not found for project ${project.name}. Skipping.`);
         continue;
       }
@@ -80,94 +84,155 @@ export class PreconfiguredSubmodulesLinker extends AbstractSubmodulesLinker {
       // Checking if branch exists and creating it if necessary
       if (featureBranchName) {
         const projectGit: SimpleGit = simpleGit(project.path);
-
         try {
           const { all } = await projectGit.branchLocal();
-
           if (!all.includes(featureBranchName)) {
-            // Branch doesn't exist, creating it
-            this.logger.info(`Creating new branch: ${featureBranchName}`);
+            this.logger.info(`[${project.name}] Branch '${featureBranchName}' not found. Creating new branch...`);
             await projectGit.checkout(`${project.remoteName}/${project.baseBranch}`);
             await projectGit.checkoutLocalBranch(featureBranchName);
+            this.logger.success(`[${project.name}] Created and checked out new branch '${featureBranchName}'.`);
           } else {
-            // Branch exists, switching to it
+            this.logger.info(`[${project.name}] Branch '${featureBranchName}' found. Checking out...`);
             await projectGit.checkout(featureBranchName);
+            this.logger.success(`[${project.name}] Checked out existing branch '${featureBranchName}'.`);
           }
         } catch (error) {
           this.logger.error(
-            `Failed to checkout/create branch ${featureBranchName}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            `[${project.name}] Failed to checkout/create branch '${featureBranchName}': ${error instanceof Error ? error.message : 'Unknown error'}`,
           );
-          // Fallback to prompting for this specific project if common branch logic failed
-          featureBranchName = await this.createOrSelectBranch(project, false);
+          this.logger.info(`[${project.name}] Falling back to manual branch selection/creation...`);
+          featureBranchName = await this.createOrSelectBranch(project, false); // This method should have its own contextual logging
         }
       } else {
-        // If branch name was not specified (e.g., user left common name empty), requesting it per project
-        featureBranchName = await this.createOrSelectBranch(project, false);
+        this.logger.info(`[${project.name}] No common branch name provided. Prompting for branch...`);
+        featureBranchName = await this.createOrSelectBranch(project, false); // This method should have its own contextual logging
       }
 
       // Skipping project if branch name couldn't be obtained
-      if (!featureBranchName) continue;
+      if (!featureBranchName) {
+        this.logger.warn(`[${project.name}] Could not determine feature branch name. Skipping project.`);
+        continue;
+      }
 
       // Updating branch if setting is enabled
       if (presets.updateFeatureBranch) {
-        this.logger.info(`Updating feature branch ${featureBranchName} from ${project.baseBranch}...`);
+        this.logger.info(
+          `[${project.name}] Updating feature branch '${featureBranchName}' from '${project.baseBranch}'...`,
+        );
         try {
           const projectGit: SimpleGit = simpleGit(project.path);
           await projectGit.pull(project.remoteName, project.baseBranch);
-          this.logger.success(`Feature branch ${featureBranchName} updated from ${project.baseBranch} successfully`);
+          this.logger.success(`[${project.name}] Feature branch '${featureBranchName}' updated successfully.`);
         } catch (error) {
-          this.logger.error(`Failed to update branch: ${error instanceof Error ? error.message : 'Unknown error'}`);
-          continue;
+          this.logger.error(
+            `[${project.name}] Failed to update branch '${featureBranchName}': ${error instanceof Error ? error.message : 'Unknown error'}`,
+          );
+          continue; // Skip subsequent steps for this project if update fails
         }
+      } else {
+        this.logger.info(`[${project.name}] Skipping branch update as per configuration.`);
       }
 
       // Selection and update of submodules
+      // Assuming selectSubmodulesToUpdate logs with context or is called with project context
       const updatedSubmodules = await this.selectSubmodulesToUpdate(project);
 
       // Skipping if no submodules selected
       if (updatedSubmodules.length === 0) {
-        this.logger.info(
-          `No submodules selected or updated for ${project.name}. Skipping subsequent steps for this project.`,
-        );
-        continue; // Skip commit, push, PR for this project
+        this.logger.info(`[${project.name}] No submodules selected or updated. Skipping commit, push, and PR steps.`);
+        continue;
       }
 
       // Preparing submodules for commit
+      // Assuming stageSubmodulesForCommit logs with context or is called with project context
+      this.logger.info(`[${project.name}] Staging updated submodules...`);
       const projectGit: SimpleGit = simpleGit(project.path);
       await this.stageSubmodulesForCommit(projectGit, project, updatedSubmodules);
+      this.logger.success(`[${project.name}] Staged submodules: ${updatedSubmodules.map((s) => s.name).join(', ')}`);
 
       // Committing changes if setting is enabled
       if (presets.commitChanges) {
         const commitMessage = this.generateCommitMessage(updatedSubmodules);
-        this.logger.info(`Committing changes for ${project.name}...`);
+        this.logger.info(`[${project.name}] Committing changes with message: "${commitMessage}"`);
+        // Assuming commitSubmoduleChanges logs with context or is called with project context
         await this.commitSubmoduleChanges(project, commitMessage);
-        this.logger.info(`New links of submodules for ${project.name} committed.`);
+        this.logger.success(`[${project.name}] Submodule updates committed.`);
+      } else {
+        this.logger.info(`[${project.name}] Skipping commit as per configuration.`);
       }
 
       // Pushing changes if setting is enabled
       if (presets.pushToRemote) {
-        this.logger.info(`Pushing ${featureBranchName} to remote ${project.remoteName}...`);
+        this.logger.info(
+          `[${project.name}] Pushing branch '${featureBranchName}' to remote '${project.remoteName}'...`,
+        );
+        // Assuming pushBranchToRemote logs with context or is called with project context
         await this.pushBranchToRemote(project, featureBranchName);
-        this.logger.success(`Pushed ${featureBranchName} of ${project.name} to ${project.remoteName} remote`);
+        this.logger.success(`[${project.name}] Branch '${featureBranchName}' pushed successfully.`);
+      } else {
+        this.logger.info(`[${project.name}] Skipping push as per configuration.`);
       }
 
       // Creating PR, if setting is enabled
       if (presets.createPR) {
-        const prProvider = this.getPrProviderByName(presets.prProvider);
-        if (prProvider) {
-          this.logger.info(`Creating PR using ${presets.prProvider} for ${project.name}...`);
-          const defaultTitle = `Update submodules for ${project.name}`;
-          const taskId = presets.taskId;
-          const prTitle = taskId ? `${taskId} ${defaultTitle}` : defaultTitle;
+        // 1. Get the configuration for the selected provider
+        const prProviderConfig = this.getPrProviderConfigByName(presets.prProvider);
 
-          await this.createPullRequest(project, featureBranchName, prProvider, prTitle);
-          this.logger.success(`PR request created successfully for ${project.name}`);
+        if (prProviderConfig) {
+          // 2. Instantiate the provider using the configuration
+          const prProviderInstance = this.instantiatePrProvider(prProviderConfig);
+
+          if (prProviderInstance) {
+            // 3. Proceed with PR creation using the instance
+            this.logger.info(`[${project.name}] Creating PR/MR using ${presets.prProvider}...`);
+            const defaultTitle = `Update submodules for ${project.name}`;
+            const taskId = presets.taskId;
+            const prTitle = taskId ? `${taskId} ${defaultTitle}` : defaultTitle;
+            this.logger.info(`[${project.name}] PR/MR Title: "${prTitle}"`);
+
+            // Call createPullRequest with the INSTANCE
+            const prUrl = await this.createPullRequest(
+              project,
+              featureBranchName,
+              prProviderInstance, // Pass the instance here
+              prTitle,
+            );
+
+            if (prUrl) {
+              createdPrs.push({ name: project.name, url: prUrl });
+            } else {
+              this.logger.warn(`[${project.name}] Could not obtain PR/MR URL.`);
+            }
+          } else {
+            // Error already logged by instantiatePrProvider
+            this.logger.warn(
+              `[${project.name}] Skipping PR creation due to instantiation failure for provider '${presets.prProvider}'.`,
+            );
+          }
         } else {
-          this.logger.warn(`PR provider ${presets.prProvider} not found. Skipping PR creation for ${project.name}.`);
+          this.logger.warn(
+            `[${project.name}] PR provider configuration '${presets.prProvider}' not found. Skipping PR creation.`,
+          );
         }
+      } else {
+        this.logger.info(`[${project.name}] Skipping PR/MR creation as per configuration.`);
       }
+      // Log the end of processing for this specific project
+      this.logger.info(`--- Finished Processing Project: ${project.name} ---`);
     }
-    this.logger.info('All selected projects processed.');
+    this.logger.info('\nAll selected projects processed.');
+
+    // Display summary of created PRs if any
+    if (createdPrs.length > 0) {
+      this.logger.info('\n════════════════════════════════════════════');
+      this.logger.info('   CREATED PULL/MERGE REQUESTS');
+      this.logger.info('════════════════════════════════════════════');
+      for (const pr of createdPrs) {
+        // Log in Markdown format
+        this.logger.info(`- [${pr.name}](${pr.url})`);
+      }
+      this.logger.info('════════════════════════════════════════════\n');
+    }
   }
 
   /**

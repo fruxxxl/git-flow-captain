@@ -1,7 +1,9 @@
 import axios from 'axios';
-import { AzureCreatePullRequestResponse, ICreatePullRequestParams } from './types';
+import { AzureCreatePullRequestResponse } from './types';
+import type { IPrProvider } from '../types';
+import type { TProjectConfig } from '../../configs/config-schema';
 
-export class AzureDevOpsClient {
+export class AzureDevOpsClient implements IPrProvider {
   private pat: string;
   private apiVersion: string = '7.1-preview.1';
 
@@ -22,19 +24,22 @@ export class AzureDevOpsClient {
   }
 
   private createPanelLink(response: AzureCreatePullRequestResponse): string {
-    return `${this.baseUrl}/_git/${response.repository.name}/pullrequest/${response.pullRequestId}`;
+    return `${this.host}/${this.organization}/${this.project}/_git/${response.repository.name}/pullrequest/${response.pullRequestId}`;
   }
 
-  public async createPullRequest(params: ICreatePullRequestParams): Promise<AzureCreatePullRequestResponse> {
-    const { repositoryId, sourceBranch, targetBranch, title, description, reviewers = [] } = params;
-
-    const prRequestUrl = `${this.baseUrl}/_apis/git/repositories/${repositoryId}/pullrequests?api-version=${this.apiVersion}`;
+  public async createPr(
+    projectConfig: TProjectConfig,
+    sourceBranch: string,
+    targetBranch: string,
+    title: string,
+    description: string = 'Update submodules',
+  ): Promise<string | undefined> {
+    const prRequestUrl = `${this.baseUrl}/_apis/git/repositories/${projectConfig.repositoryId}/pullrequests?api-version=${this.apiVersion}`;
     const prRequestBody = {
       sourceRefName: `refs/heads/${sourceBranch}`,
       targetRefName: `refs/heads/${targetBranch}`,
       title,
       description,
-      reviewers,
     };
 
     try {
@@ -45,15 +50,13 @@ export class AzureDevOpsClient {
         },
       });
 
-      console.log('PR created successfully:', this.createPanelLink(response.data));
-
-      // Optionally, link tasks (work items) to the newly created PR here by making additional API calls
-      // This step requires the PR ID from response.data and separate API calls to link work items
-
-      return response.data; // Return the response data for further processing
-    } catch (error) {
-      console.error('Error creating PR:', error);
-      throw error; // Rethrow the error for handling upstream
+      return this.createPanelLink(response.data);
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message || error;
+      console.error(
+        `AzureDevOpsClient Error creating Pull Request for repository ${projectConfig.repositoryId}: ${errorMessage}`,
+      );
+      throw error;
     }
   }
 }
