@@ -196,6 +196,7 @@ export class PreconfiguredSubmodulesLinker extends AbstractSubmodulesLinker {
 
             if (prUrl) {
               createdPrs.push({ name: project.name, url: prUrl, title: prTitle });
+              this.logger.info(`[${project.name}] [${prTitle}] (${prUrl})`);
             } else {
               this.logger.warn(`[${project.name}] Could not obtain PR/MR URL.`);
             }
