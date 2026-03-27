@@ -238,10 +238,34 @@ export abstract class AbstractSubmodulesLinker extends AbstractCrewMember {
     await projectGit.push(project.remoteName, branchName);
   }
 
-  protected async commitSubmoduleChanges(project: TProjectConfig, commitMessage: string): Promise<void> {
+  /**
+   * Git exits 1 when there is nothing new to record, for example:
+   * - "nothing to commit, working tree clean"
+   * - "nothing added to commit but untracked files present" (submodules unchanged, only junk untracked paths)
+   */
+  protected isGitNothingToCommitError(error: unknown): boolean {
+    const msg = error instanceof Error ? error.message : String(error);
+    return /nothing to commit|nothing added to commit/i.test(msg);
+  }
+
+  /**
+   * @returns true if a new commit was created, false if the tree was already clean (safe to continue to push).
+   */
+  protected async commitSubmoduleChanges(project: TProjectConfig, commitMessage: string): Promise<boolean> {
     const projectGit: SimpleGit = simpleGit(project.path);
-    await projectGit.commit(commitMessage);
-    this.logger.info(`Committed submodule changes in project ${project.name} with message: "${commitMessage}"`);
+    try {
+      await projectGit.commit(commitMessage);
+      this.logger.info(`Committed submodule changes in project ${project.name} with message: "${commitMessage}"`);
+      return true;
+    } catch (error) {
+      if (this.isGitNothingToCommitError(error)) {
+        this.logger.info(
+          `[${project.name}] Nothing to commit (working tree already matches desired state); skipping commit.`,
+        );
+        return false;
+      }
+      throw error;
+    }
   }
 
   protected generateCommitMessage(updatedSubmodules: TSubmoduleConfig[]): string {
@@ -432,11 +456,22 @@ export abstract class AbstractSubmodulesLinker extends AbstractCrewMember {
     );
 
     try {
-      await projectGit.commit(commitMessage);
-      this.logger.successAwaiting(
-        `New links of submodules for ${project.name} (${project.repositoryId}) committed.`,
-        commitSpinner,
-      );
+      try {
+        await projectGit.commit(commitMessage);
+        this.logger.successAwaiting(
+          `New links of submodules for ${project.name} (${project.repositoryId}) committed.`,
+          commitSpinner,
+        );
+      } catch (commitError) {
+        if (this.isGitNothingToCommitError(commitError)) {
+          this.logger.successAwaiting(
+            `Nothing new to commit for ${project.name} (${project.repositoryId}); continuing.`,
+            commitSpinner,
+          );
+        } else {
+          throw commitError;
+        }
+      }
 
       const { isPushToRemote } = await prompts({
         type: 'confirm',

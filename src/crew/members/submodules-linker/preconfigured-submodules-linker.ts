@@ -154,9 +154,12 @@ export class PreconfiguredSubmodulesLinker extends AbstractSubmodulesLinker {
       if (presets.commitChanges) {
         const commitMessage = this.generateCommitMessage(updatedSubmodules);
         this.logger.info(`[${project.name}] Committing changes with message: "${commitMessage}"`);
-        // Assuming commitSubmoduleChanges logs with context or is called with project context
-        await this.commitSubmoduleChanges(project, commitMessage);
-        this.logger.success(`[${project.name}] Submodule updates committed.`);
+        const committed = await this.commitSubmoduleChanges(project, commitMessage);
+        if (committed) {
+          this.logger.success(`[${project.name}] Submodule updates committed.`);
+        } else {
+          this.logger.info(`[${project.name}] Commit skipped (already up to date); continuing to next steps.`);
+        }
       } else {
         this.logger.info(`[${project.name}] Skipping commit as per configuration.`);
       }
