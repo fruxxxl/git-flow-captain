@@ -1,7 +1,14 @@
 # GitFlowCaptain
 
-It's a CLI tool that helps to automate the process of creating and merging branches, creating pull requests, updating the version of the project, and managing Git submodules.
-For current moment it supports these tasks:
+A CLI for developers who maintain a parent repository with Git submodules. It updates submodule references, creates pull or merge requests in GitLab and Azure DevOps, and switches branches across configured repositories.
+
+For example, after a dependency is merged, you can update its reference in the parent project and open a review request through one configured workflow. The available tasks are defined in [`src/index.ts`](src/index.ts).
+
+**По-русски:** инструмент для команд с несколькими связанными репозиториями. Помогает обновлять ссылки на submodules, создавать запросы на слияние и переключать ветки.
+
+Built by [Alexander Shulgin](https://procesa.ru/about/), developer at PROCESA. [Business automation and custom tools](https://procesa.ru/).
+
+Available tasks:
 
 - Preconfigured link merged submodules
 - Interactive link merged submodules
