@@ -6,8 +6,6 @@ For example, after a dependency is merged, you can update its reference in the p
 
 **По-русски:** инструмент для команд с несколькими связанными репозиториями. Помогает обновлять ссылки на submodules, создавать запросы на слияние и переключать ветки.
 
-Built by [Alexander Shulgin](https://procesa.ru/about/), developer at PROCESA. [Business automation and custom tools](https://procesa.ru/).
-
 Available tasks:
 
 - Preconfigured link merged submodules
